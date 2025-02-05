@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@src/*": ["./src/*"],
+      "@app/*": ["./app/*"],
+      "@utils/*": ["./utils/*"],
+      "@shared/renderer/*": ["./app/renderer/shared/*"]
+    }
+  },
+  "include": ["src", "scripts", "server/spec", "app", "shared", "utils"]
+}
