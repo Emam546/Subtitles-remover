@@ -1,5 +1,5 @@
 import { BrowserWindowConstructorOptions } from "electron";
-import { getVideoInfo } from "../utils/ffmpeg";
+import { getVideoInfo } from "@app/main/utils/ffmpeg";
 import { BaseDownloaderWindow, DownloaderData } from "../window";
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";

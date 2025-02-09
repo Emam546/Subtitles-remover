@@ -3,4 +3,4 @@ export {
   HandleOnceMethod,
   OnMethods,
   OnceMethods,
-} from "../linkDownload/ipc";
+} from "../ipc";

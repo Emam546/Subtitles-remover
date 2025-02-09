@@ -7,7 +7,9 @@ import { pathsToModuleNameMapper } from "ts-jest";
 const config: Config = {
   transform: {
     "^.+\\.(ts|tsx)$": ["ts-jest", { tsconfig: "./tsconfig.test.json" }],
+    "^.+\\.(js|jsx)$": "babel-jest",
   },
+  transformIgnorePatterns: ["/node_modules/(?!ffmpeg-stream)"],
   roots: ["<rootDir>/"],
   testMatch: ["**/spec/**/?(*.)+(spec|test).+(ts|js)"],
   testEnvironment: "node",

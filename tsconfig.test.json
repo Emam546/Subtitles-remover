@@ -1,7 +1,16 @@
 {
-  "extends": "./tsconfig.server.json",
   "compilerOptions": {
+    "target": "ES2015",
+    "module": "commonjs",
+    "outDir": "dist",
+    "noEmit": false,
     "baseUrl": "./",
+    "esModuleInterop": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@src/*": ["./src/*"],
       "@app/*": ["./app/*"],

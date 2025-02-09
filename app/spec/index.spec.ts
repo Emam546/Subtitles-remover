@@ -1,157 +1,271 @@
 import "../main/pre-start";
-import { DownloadTheFile } from "@app/main/lib/progressBar/linkDownload/downloader";
-import {
-  getVideoData,
-  ServerVideoInfo,
-} from "@serv/routes/videoDownloader/api";
-import { IncomingMessage } from "http";
+import { SubtitlesRemover } from "@app/main/utils/SubtitlesRemover/ipc";
+import path from "path";
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
-import {
-  continueDownloading,
-  getTempName,
-} from "@app/main/lib/progressBar/ffmpgeCutter/continueDownloading";
-import { getVideoInfo } from "@app/main/lib/progressBar/utils/ffmpeg";
-import path from "path";
-
-async function testDownloadResponse(response: IncomingMessage) {
-  expect(response.statusCode).toBeLessThan(300);
-  const result = await new Promise((res, rej) => {
-    response.on("data", () => {
-      response.destroy();
-      res(true);
+import { getVideoInfo } from "@app/main/utils/ffmpeg";
+const videoPath = path.join(__dirname, "./example.mp4");
+describe("Test Subtitles Remover", () => {
+  const outputPath = path.join(__dirname, "output.mp4");
+  test("simple video", async () => {
+    const remover = new SubtitlesRemover({
+      path: videoPath,
     });
-    response.on("end", () => res(false));
+    await remover.generate();
+    const video = remover.seek({
+      startTime: 0,
+      colorRange: {
+        max: [255, 255, 255],
+        min: [0, 0, 0],
+      },
+      radius: 2,
+
+      roi: {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      },
+    });
+    await new Promise<void>((res, rej) => {
+      ffmpeg()
+        .input(video)
+        .inputFormat("rawvideo")
+        .inputOptions([
+          "-pix_fmt bgr24",
+          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
+        ])
+        .FPS(parseFloat(remover.videoStream!.r_frame_rate!))
+
+        .output(outputPath)
+        .on("end", () => {
+          res();
+        })
+        .on("error", rej)
+        .on("progress", () => {
+          console.log("progress");
+        })
+        .run();
+    });
+    expect(fs.existsSync(videoPath)).toBe(true);
   });
-  expect(result).toBe(true);
-}
-describe("Test ffmbeg ", () => {
-  const link = "https://www.w3schools.com/html/mov_bbb.mp4";
-  test("test ffprobe", async () => {
-    const data = await new Promise((res, rej) => {
-      const ffProb = ffmpeg.ffprobe(link, (err, data) => {
-        if (err) {
-          rej(err);
-        } else res(data);
-      });
+  test("test with a seeking", async () => {
+    const remover = new SubtitlesRemover({
+      path: videoPath,
     });
-    expect(data).not.toBeUndefined();
-  });
-  describe("Downloading", () => {
-    const videoPath = "result.mov";
-    test("normal", async () => {
-      const writeStream = fs.createWriteStream(videoPath);
-      const res = await new Promise((res, rej) => {
-        ffmpeg(link)
-          .format("mov")
-          .setStartTime(0)
-          .duration(5)
-          .on("start", (data) => {
-            console.log("Download started...", data); //ffmpeg -ss 5 -i http://192.168.1.150:4001/Film.mp4 -f mov -t 5 -movflags frag_keyframe+empty_moov -c copy pipe:1
-          })
-          .on("end", () => {
-            writeStream.end(); // Close the writable stream
-            res(true);
-          })
-          .on("error", (err) => {
-            console.log(err);
-            writeStream.end(); // Ensure stream is closed on error
-            rej(err);
-          })
-          .outputOptions("-movflags frag_keyframe+empty_moov")
-          .outputOptions("-c copy")
-          .pipe(writeStream);
-      });
-      expect(res).toBe(true);
-      const info = await getVideoInfo(videoPath);
-      expect(Math.floor(info.format.duration!)).toBe(5);
-    });
-    test("merge two videos", async () => {
-      const writeStream = fs.createWriteStream(videoPath);
+    await remover.generate();
+    const video = remover.seek({
+      startTime: 2,
+      colorRange: {
+        max: [255, 255, 255],
+        min: [0, 0, 0],
+      },
+      radius: 2,
 
-      const res = await new Promise((res, rej) => {
-        ffmpeg()
-          .input(link)
-          .input(link)
-          .on("start", (data) => {
-            console.log("Download started...", data); //ffmpeg -ss 5 -i http://192.168.1.150:4001/Film.mp4 -f mov -t 5 -movflags frag_keyframe+empty_moov -c copy pipe:1
-          })
-          .on("end", () => {
-            res(true);
-          })
-          .on("error", (err) => {
-            console.log(err); // Ensure stream is closed on error
-            rej(err);
-          })
-          .format("mov")
-          .outputOptions("-movflags frag_keyframe+empty_moov")
-          .mergeToFile(writeStream, "./");
-      });
-      expect(res).toBe(true);
-      const info = await getVideoInfo(videoPath);
-      expect(Math.floor(info.format.duration!)).toBe(20);
+      roi: {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      },
     });
-    describe("continue Downloading", () => {
-      beforeAll(async () => {
-        const writeStream = fs.createWriteStream(videoPath);
-        await new Promise((res, rej) => {
-          ffmpeg(link)
-            .format("mp4")
-            .duration(5)
-            .on("end", () => {
-              res(true);
-            })
-            .on("error", (err) => {
-              writeStream.close(); // Ensure stream is closed on error
-              rej(err);
-            })
-            .outputOptions("-movflags frag_keyframe+empty_moov")
-            .outputOptions("-c copy")
-            .pipe(writeStream);
-        });
-      });
-      test("normalState", async () => {
-        const writeStream = fs.createWriteStream(videoPath);
+    await new Promise<void>((res, rej) => {
+      ffmpeg()
+        .input(video)
+        .inputFormat("rawvideo")
+        .inputOptions([
+          "-pix_fmt bgr24",
+          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
+        ])
+        .FPS(parseFloat(remover.videoStream!.r_frame_rate!))
+        .output(outputPath)
+        .on("end", () => {
+          res();
+        })
+        .on("error", rej)
+        .run();
+    });
 
-        const ffmpegPut = await continueDownloading(link, videoPath, 0, 10);
-        const res = await new Promise((res, rej) => {
-          ffmpegPut
-            .on("start", (data) => {
-              console.log("Download started...", data); //ffmpeg -ss 5 -i http://192.168.1.150:4001/Film.mp4 -f mov -t 5 -movflags frag_keyframe+empty_moov -c copy pipe:1
-            })
-            .on("end", () => {
-              writeStream.end(); // Close the writable stream
-              res(true);
-            })
-            .on("error", (err) => {
-              console.log(err);
-              writeStream.end(); // Ensure stream is closed on error
-              rej(err);
-            })
-            .outputOptions("-movflags frag_keyframe+empty_moov")
-            .format("mov")
-            .mergeToFile(writeStream, path.dirname(videoPath));
-        });
-        expect(res).toBe(true);
-        const info = await getVideoInfo(videoPath);
-        expect(Math.floor(info.format.duration!)).toBe(10);
-        expect(fs.existsSync(getTempName(videoPath))).toBe(false);
-      });
-    });
+    expect(fs.existsSync(videoPath)).toBe(true);
+    const metaData = await getVideoInfo(outputPath);
+    const duration = +metaData.streams.find((s) => s.codec_type == "video")!
+      .duration!;
+    expect(duration).toBeLessThan(+remover.videoStream!.duration!);
   });
 });
-describe("Test Download function", () => {
-  const id = "TOOIRGhsFD4";
-  jest.setTimeout(50000);
-  let val: Awaited<ReturnType<typeof getVideoData>>;
-  beforeAll(async () => {
-    val = await getVideoData({ id });
-  });
-  test("Test Is it Download from youtube", async () => {
-    const format = val!.video!.medias.VIDEO!.find(
-      (val) => typeof val.dlink == "string"
-    )?.dlink as string;
-    const response = await DownloadTheFile(format);
-    testDownloadResponse(response);
-  });
-});
+
+// class FixedSizeChunkStream extends Transform {
+//   private buffer: Buffer = Buffer.alloc(0);
+//   private chunkSize: number;
+
+//   constructor(chunkSize: number) {
+//     super();
+//     this.chunkSize = chunkSize;
+//   }
+
+//   _transform(chunk: Buffer, encoding: BufferEncoding, callback: Function) {
+//     this.buffer = Buffer.concat([this.buffer, chunk] as Array<any>);
+
+//     while (this.buffer.length >= this.chunkSize) {
+//       this.push(this.buffer.slice(0, this.chunkSize)); // Emit fixed-size chunk
+//       this.buffer = this.buffer.slice(this.chunkSize); // Keep the remainder
+//     }
+
+//     callback();
+//   }
+
+//   _flush(callback: Function) {
+//     // Emit the last chunk if there's leftover data
+//     if (this.buffer.length > 0) {
+//       this.push(this.buffer);
+//     }
+//     callback();
+//   }
+// }
+// test("one single video", async () => {
+//   let num = 0;
+
+//   const metadata = await getVideoInfo(videoPath);
+//   const videoStreams = metadata.streams;
+
+//   // Additional info: codec and resolution
+//   const videoStream = videoStreams.find(
+//     (stream) => stream.codec_type === "video"
+//   )!;
+//   const height = videoStream.height!;
+//   const width = videoStream.width!;
+//   console.log(height, width);
+//   const frame_size = width * height * 3;
+//   await new Promise<void>((res, rej) => {
+//     const pythonProcess = spawn("python", ["python"]);
+//     const trans = new Writable({
+//       highWaterMark: frame_size,
+//       write(chunk: Buffer, _, callback) {
+//         if (!chunk) return callback();
+//         pythonProcess.stdout.once("data", (data) => {
+//           ++num;
+//           callback(null);
+//         });
+//         if (num >= 1) {
+//           this.end();
+//           res();
+//           return;
+//         }
+//         pythonProcess.stdin.write(
+//           JSON.stringify({
+//             image: chunk.toString("base64"),
+//             colorRange: [
+//               [255, 255, 255],
+//               [0, 0, 0],
+//             ],
+//             radius: 2,
+//             width,
+//             height,
+//             depth: 3,
+//             roi: [0, 0, 10, 10],
+//           }) + "\n"
+//         );
+//       },
+//     });
+//     pythonProcess.stderr.on("data", (error) => {
+//       console.error(error.toString());
+//       rej(error.toString());
+//     });
+//     const fixed = new FixedSizeChunkStream(frame_size);
+//     fixed.pipe(trans);
+//     ffmpeg(videoPath)
+//       .format("image2pipe")
+//       .addOption("-pix_fmt bgr24")
+//       .videoCodec("rawvideo")
+//       .on("error", (e) => rej(e))
+//       .pipe(fixed);
+//   });
+// });
+// test("one single video to another video", async () => {
+//   let num = 0;
+
+//   const metadata = await getVideoInfo(videoPath);
+//   const videoStreams = metadata.streams;
+
+//   // Additional info: codec and resolution
+//   const videoStream = videoStreams.find(
+//     (stream) => stream.codec_type === "video"
+//   )!;
+//   const height = videoStream.height!;
+//   const width = videoStream.width!;
+//   const frame_size = width * height * 3;
+//   console.log(videoStream.codec_tag_string, videoStream.codec_tag);
+//   await new Promise<void>((res, rej) => {
+//     const pythonProcess = spawn("python", ["python"]);
+//     const trans = new Transform({
+//       transform(chunk: Buffer, _, callback) {
+//         if (chunk.length != frame_size) return callback();
+//         console.log(num, chunk.length);
+//         pythonProcess.stdout.once("data", (data) => {
+//           callback(null, data);
+//           ++num;
+//         });
+//         pythonProcess.stdin.write(
+//           JSON.stringify({
+//             image: chunk.toString("base64"),
+//             colorRange: [
+//               [255, 255, 255],
+//               [0, 0, 0],
+//             ],
+//             radius: 2,
+//             width,
+//             height,
+//             roi: [0, 0, 10, 10],
+//           }) + "\n"
+//         );
+//       },
+//     });
+//     pythonProcess.stderr.on("data", (error) => {
+//       rej(error.toString());
+//     });
+//     const fixed = new FixedSizeChunkStream(frame_size);
+//     const audioStream = new PassThrough();
+//     fixed.pipe(trans);
+//     ffmpeg(videoPath)
+//       .format("image2pipe")
+//       .addOption("-pix_fmt bgr24")
+//       .videoCodec("rawvideo")
+//       .on("error", (e) => rej(e))
+//       .pipe(fixed);
+//     ffmpeg(videoPath)
+//       .noVideo()
+//       .format("adts")
+//       .pipe(audioStream, { end: false });
+//     ffmpeg()
+//       .input(trans)
+//       .inputFormat("rawvideo")
+//       .inputOptions(["-pix_fmt bgr24", `-s ${width}:${height}`])
+//       .FPS(parseFloat(videoStream.r_frame_rate!))
+
+//       .audioCodec("acc")
+//       .inputFormat("adts")
+//       .outputOptions([
+//         "-c:a aac", // Encode audio as AAC
+//         "-shortest",
+//       ])
+//       .output("output.mp4")
+//       .on("end", () => {
+//         res();
+//       })
+//       .on("error", (e) => rej(e))
+//       .on("progress", () => {
+//         console.log("progress");
+//       })
+//       .run();
+//   });
+// }, 50000);
+// test("Hey", (done) => {
+//   const pythonProcess = spawn("python", [path.join(__dirname, "example.py")]);
+//   pythonProcess.stdout.on("data", (data) => {
+//     console.log(data.toString());
+//     done();
+//   });
+//   pythonProcess.stdin.write("hey");
+//   pythonProcess.stdin.write("hey \n");
+//   pythonProcess.stdin.write("hey \n");
+// });

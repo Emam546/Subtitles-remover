@@ -1,4 +1,4 @@
-import "./ipc";
+import "../ipc";
 import { BrowserWindowConstructorOptions, shell } from "electron";
 import path from "path";
 import { ProgressBarState, Context } from "@shared/renderer/progress";
