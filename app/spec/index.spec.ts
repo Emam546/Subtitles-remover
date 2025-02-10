@@ -1,17 +1,20 @@
-import "../main/pre-start";
-import { SubtitlesRemover } from "@app/main/utils/SubtitlesRemover/ipc";
+// import "../main/pre-start";
+import { SubtitlesRemover } from "@app/main/utils/SubtitlesRemover";
 import path from "path";
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
+import { Writable } from "stream";
+
 const videoPath = path.join(__dirname, "./example.mp4");
+const outputPath = path.join(__dirname, "output.mp4");
 describe("Test Subtitles Remover", () => {
-  const outputPath = path.join(__dirname, "output.mp4");
+  const subtitlesRemover = new SubtitlesRemover();
+  beforeAll(async () => {
+    await subtitlesRemover.initialize();
+  });
   test("simple video", async () => {
-    const remover = new SubtitlesRemover({
-      path: videoPath,
-    });
-    await remover.generate();
+    const remover = await subtitlesRemover.generate(videoPath);
     const video = remover.seek({
       startTime: 0,
       colorRange: {
@@ -28,32 +31,20 @@ describe("Test Subtitles Remover", () => {
       },
     });
     await new Promise<void>((res, rej) => {
-      ffmpeg()
-        .input(video)
-        .inputFormat("rawvideo")
-        .inputOptions([
-          "-pix_fmt bgr24",
-          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
-        ])
-        .FPS(parseFloat(remover.videoStream!.r_frame_rate!))
-
-        .output(outputPath)
-        .on("end", () => {
-          res();
-        })
-        .on("error", rej)
-        .on("progress", () => {
-          console.log("progress");
-        })
-        .run();
+      const writer = fs.createWriteStream(outputPath);
+      writer.on("finish", res);
+      video.on("error", rej);
+      // video.on("data", () => console.log(DataTransfer.length));
+      video.pipe(writer);
     });
-    expect(fs.existsSync(videoPath)).toBe(true);
+    const metaData = await getVideoInfo(outputPath);
+    const duration = +metaData.streams.find((s) => s.codec_type == "video")!
+      .duration!;
+    expect(duration).toBeCloseTo(+remover.videoStream!.duration!, 0);
   });
   test("test with a seeking", async () => {
-    const remover = new SubtitlesRemover({
-      path: videoPath,
-    });
-    await remover.generate();
+    const remover = await subtitlesRemover.generate(videoPath);
+
     const video = remover.seek({
       startTime: 2,
       colorRange: {
@@ -70,27 +61,45 @@ describe("Test Subtitles Remover", () => {
       },
     });
     await new Promise<void>((res, rej) => {
-      ffmpeg()
-        .input(video)
-        .inputFormat("rawvideo")
-        .inputOptions([
-          "-pix_fmt bgr24",
-          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
-        ])
-        .FPS(parseFloat(remover.videoStream!.r_frame_rate!))
-        .output(outputPath)
-        .on("end", () => {
-          res();
-        })
-        .on("error", rej)
-        .run();
+      const writer = fs.createWriteStream(outputPath);
+      writer.on("finish", res);
+      writer.on("error", rej);
+      video.pipe(writer);
     });
-
-    expect(fs.existsSync(videoPath)).toBe(true);
     const metaData = await getVideoInfo(outputPath);
     const duration = +metaData.streams.find((s) => s.codec_type == "video")!
       .duration!;
     expect(duration).toBeLessThan(+remover.videoStream!.duration!);
+  });
+  test("just for show", async () => {
+    const remover = await subtitlesRemover.generate(videoPath);
+    const video = remover.seek({
+      startTime: 0,
+      colorRange: {
+        max: [255, 255, 255],
+        min: [0, 0, 0],
+      },
+      radius: 2,
+
+      roi: {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      },
+    });
+    await new Promise<void>((res, rej) => {
+      const writer = new Writable({
+        write(chunk: Buffer, encoding, callback) {
+          console.log(chunk.length);
+          callback();
+        },
+      });
+      writer.on("finish", res);
+      writer.on("error", rej);
+      video.on("error", rej);
+      video.pipe(writer);
+    });
   });
 });
 

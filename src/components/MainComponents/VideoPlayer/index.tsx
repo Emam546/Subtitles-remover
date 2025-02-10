@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import Loading from "../../common/Loading";
 import { useRouter } from "next/router";
 import VideoViewer from "../Viewer";
@@ -15,34 +15,24 @@ export function ErrorMessage({ children }: { children: ReactNode }) {
 
 export default function VideoClipper() {
   const router = useRouter();
-  const { url, ...query } = router.query as {
-    url?: string;
+  const [mediaSource, setMediaSource] = useState(new MediaSource());
+  const { path, ...query } = router.query as {
     start?: string;
     end?: string;
+    path?: string;
   };
   const paramQuery = useQuery({
-    queryKey: ["video", url],
-    queryFn: ({ signal }) => {
-      return new Promise<number>((resolve, reject) => {
-        const video = document.createElement("video");
+    queryKey: ["video", path],
+    queryFn: async ({ signal }) => {
+      const result = await window.api.invoke("insertVideo", path!);
 
-        video.preload = "metadata"; // Load only metadata, not the full video
-        video.src = url!;
-
-        video.onloadedmetadata = () => {
-          resolve(Math.ceil(video.duration));
-        };
-
-        video.onerror = (e) => {
-          reject("Error loading video metadata");
-        };
-      });
+      return { duration: parseFloat(result.duration!) };
     },
-    enabled: url != undefined,
+    enabled: path != undefined,
     cacheTime: 1 * 1000 * 60,
     staleTime: 1 * 1000 * 60,
   });
-  if (!url) return null;
+  if (!path) return null;
   if (paramQuery.isLoading) return <Loading />;
   if (paramQuery.isError) {
     return (
@@ -53,7 +43,8 @@ export default function VideoClipper() {
   }
   if (!paramQuery.data)
     return <ErrorMessage>The video is not exist</ErrorMessage>;
-  const duration = paramQuery.data;
+  const duration = paramQuery.data.duration;
+
   const [start, end] = [
     getTime(query.start, 0, duration),
     getTime(query.end, duration, duration),
@@ -64,7 +55,7 @@ export default function VideoClipper() {
         start={start}
         end={end}
         duration={duration}
-        url={url}
+        path={path}
         setDuration={(start, end) => {
           router.replace(
             {

@@ -22,7 +22,7 @@ export default function VideoUploader() {
               if (file) {
                 router.push({
                   pathname: router.pathname,
-                  query: { url: URL.createObjectURL(file) },
+                  query: {  path: file.path },
                 });
               }
             }}

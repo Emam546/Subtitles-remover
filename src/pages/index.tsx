@@ -17,6 +17,7 @@ export const Page: NextPageWithSpecialComponent = function () {
   );
 };
 Page.getLayout = function () {
+  if (typeof window == "undefined") return null;
   return (
     <>
       <VideoClipper />

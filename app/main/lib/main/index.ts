@@ -21,32 +21,11 @@ export const createMainWindow = async (
   options: BrowserWindowConstructorOptions,
   preloadData?: Context
 ): Promise<BrowserWindow> => {
-  const state: Electron.BrowserWindowConstructorOptions = {
-    show: false,
-    autoHideMenuBar: true,
-  };
-
-  const getCurrentPosition = () => {
-    const position = win.getPosition();
-    const size = win.getSize();
-    return {
-      x: position[0],
-      y: position[1],
-      width: size[0],
-      height: size[1],
-    };
-  };
-
-  const saveState = () => {
-    if (!win.isMinimized() && !win.isMaximized()) {
-      Object.assign(state, getCurrentPosition());
-    }
-  };
-
+  const state: Electron.BrowserWindowConstructorOptions = {};
   const win = new MainWindow({
     ...options,
-    ...state,
     icon: "build/icon.ico",
+    autoHideMenuBar:true,
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,
@@ -61,16 +40,10 @@ export const createMainWindow = async (
     },
   });
 
-  win.on("ready-to-show", () => {
-    win.maximize();
-    win.show();
-  });
-
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
-  win.on("close", saveState);
   if (isProd && appServe) {
     await appServe(win);
   } else if (isDev) {
@@ -87,5 +60,6 @@ export const createMainWindow = async (
       }
     });
   } else throw new Error("Unrecognized environment");
+  win.show();
   return win;
 };

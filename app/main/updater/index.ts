@@ -3,7 +3,7 @@ import { app } from "electron";
 import { createUpdateWindow } from "@app/main/lib/update";
 import AppUpdater from "./AppUpdater";
 import PackageJson from "../../../package.json";
-import { isProd } from "../utils";
+import { isDev, isProd } from "../utils";
 import { MainWindow } from "../lib/main/window";
 console.log("Version", PackageJson.version);
 const autoUpdater = new AppUpdater({
@@ -13,8 +13,8 @@ const autoUpdater = new AppUpdater({
 });
 app.whenReady().then(async () => {
   autoUpdater.on("error", (e) => console.error(e));
-  console.log("checking fro update");
-  autoUpdater.checkForUpdates();
+  console.log("checking for update");
+  if (isProd) autoUpdater.checkForUpdates();
 });
 autoUpdater.once("update-available", (update) => {
   console.log("update available", update.tag_name);

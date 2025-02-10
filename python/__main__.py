@@ -38,32 +38,38 @@ def process_image(image: np.ndarray, roi: Tuple[int, int, int, int], size=3,
 def main():
     """Continuously read JSON input from stdin, process image, and write JSON output to stdout."""
     while True:
+        try:
+            # Read JSON input line from stdin
+            input_data = sys.stdin.readline().strip()
+            if not input_data:
+                continue
 
-        # Read JSON input line from stdin
-        input_data = sys.stdin.readline().strip()
-        if not input_data:
-            continue
+            data = json.loads(input_data)
 
-        data = json.loads(input_data)
+            # Decode image
 
-        # Decode image
+            image = base64_to_image(
+                data["image"], data["width"], data["height"])
+            roi = tuple(data["roi"])
+            size = data.get("size", 3)
+            color_range = tuple(
+                map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]])))
+            radius = data.get("radius", 2)
+            flags = data.get("flags", cv2.INPAINT_TELEA)
 
-        image = base64_to_image(
-            data["image"], data["width"], data["height"])
-        roi = tuple(data["roi"])
-        size = data.get("size", 3)
-        color_range = tuple(
-            map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]])))
-        radius = data.get("radius", 2)
-        flags = data.get("flags", cv2.INPAINT_TELEA)
+            # Process image
+            processed_image = process_image(
+                image, roi, size, color_range, radius, flags)
+            # Encode and output result
+            sys.stdout.buffer.write(processed_image)
 
-        # Process image
-        processed_image = process_image(
-            image, roi, size, color_range, radius, flags)
-        # Encode and output result
-        sys.stdout.buffer.write(processed_image)
-        sys.stdout.flush()
+            sys.stdout.flush()
+        except Exception as e:
+            sys.stdout.write(e.__str__())
+            sys.stdout.flush()
 
 
 if __name__ == "__main__":
+    print("ready")
+    sys.stdout.flush()
     main()

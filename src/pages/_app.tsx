@@ -13,7 +13,6 @@ import { NextPage } from "next";
 
 config.autoAddCss = false;
 const queryClient = new QueryClient();
-declare module "next" {}
 export type NextPageWithSpecialComponent<
   P = Record<string, unknown>,
   IP = P
