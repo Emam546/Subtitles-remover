@@ -76,7 +76,6 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
       window.addEventListener("resize", listener);
       return () => {
         videoElement.removeEventListener("loadedmetadata", listener);
-
         videoElement.removeEventListener("resize", listener);
         window.removeEventListener("resize", listener);
       };
@@ -87,9 +86,10 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
         const dim = getVideoElementDimensions(videoElement);
         setRndDimensions(predictSubtitleBox(dim.width, dim.height));
       };
-      videoElement.addEventListener("loadedmetadata", listener, { once: true });
+      _setRndDimensions(undefined);
+      videoElement.addEventListener("canplay", listener, { once: true });
       return () => {
-        videoElement.removeEventListener("loadedmetadata", listener);
+        videoElement.removeEventListener("canplay", listener);
       };
     }, [videoElement, aspect, id]);
     const allRef = useSyncRefs(
@@ -98,12 +98,15 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     );
     return (
       <div
-        className={classNames("relative bg-black/90", {
-          "aspect-video": aspect == "16:9",
-          "aspect-[4/3]": aspect == "4:3",
-        })}
+        className={classNames(
+          "relative bg-black/90",
+          {
+            "aspect-video": aspect == "16:9",
+            "aspect-[4/3]": aspect == "4:3",
+          }
+        )}
       >
-        <video {...props} ref={allRef}></video>
+        <video {...props} ref={allRef} className="w-full h-full"></video>
         {dimensions && rndDimensions && (
           <div
             className="absolute"

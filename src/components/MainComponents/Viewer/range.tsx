@@ -23,7 +23,7 @@ export const Thumb = React.forwardRef<ComponentRef<"div">, ThumbProps>(
         {...props}
         className="h-full hover:outline-none focus:outline-none -translate-x-[50%]"
       >
-        <div aria-grabbed={isDragged} className="h-full w-1 bg-gray-400"></div>
+        <div aria-grabbed={isDragged} className="w-1 h-full bg-gray-400"></div>
         <div
           aria-grabbed={isDragged}
           className="absolute top-[50%] left-[50%] -translate-x-[50%] -translate-y-[50%] bg-blue-400 rounded-full h-7 w-7 aria-[grabbed='true']:bg-blue-800"
@@ -104,7 +104,7 @@ export function Tracker({ props, children, duration }: TrackerProps) {
               ((duration - numTiles * 60) / 60) * tilesNumber
             )}
           />
-          <Mark skip={false} time={duration} tilesNumber={0} />
+          <Mark skip={false} time={Math.floor(duration)} tilesNumber={0} />
         </div>
       </div>
     </div>

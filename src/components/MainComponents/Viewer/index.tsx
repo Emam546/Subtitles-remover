@@ -17,57 +17,74 @@ export default function VideoViewer({
   duration,
   start,
   end,
-  setDuration,
+  setDuration: setStartEndCut,
 }: Props) {
   const [playing, setPlaying] = useState(false);
-  const [curDuration, setCurDuration] = useState(start);
   const ref = useRef<HTMLVideoElement>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
   const [curDim, setCurDim] = useState<Dimensions>();
-  const [mediaDuration, setMediaDuration] = useState(0);
+  const [curDuration, setCurDuration] = useState(start);
+  const [mediaDuration, setMediaDuration] = useState(curDuration);
   useEffect(() => {
     setCurDuration(start);
   }, [path]);
   useEffect(() => {
     if (!ref.current) return;
     const mediaSource = new MediaSource();
-    ref.current.src = URL.createObjectURL(mediaSource);
+    const url = URL.createObjectURL(mediaSource);
+    ref.current.src = url;
     mediaSource.addEventListener("sourceopen", () => {
+      if (
+        mediaSource.readyState != "open" ||
+        mediaSource.sourceBuffers.length > 0
+      )
+        return;
+    mediaSource.duration = duration - curDuration;
+      
       const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-      console.log(curDim);
       window.api.send("seek", {
-        startTime: 0,
+        startTime: curDuration,
         colorRange: { min: [200, 200, 200], max: [255, 255, 255] },
         radius: 2,
         roi: curDim || { x: 0, y: 0, width: 5, height: 5 },
       });
       window.api.on("chunk", (_, chunk) => {
-        sourceBuffer.appendBuffer(chunk);
+        if (!sourceBuffer.updating) sourceBuffer.appendBuffer(chunk);
       });
     });
+    setMediaDuration(curDuration);
     return () => {
+      URL.revokeObjectURL(url);
       window.api.removeAllListeners("chunk");
     };
-  }, [curDim, ref.current]);
+  }, [curDim, ref.current, path]);
+  useEffect(() => {}, []);
   useEffect(() => {
     window.api.on("error", (_, e) => {
       console.error(e);
     });
-    return () => {
-      window.api.removeAllListeners("error");
-    };
-  }, []);
-  useEffect(() => {
-    return () => {
-      window.api.removeAllListeners("error");
-    };
+    return () => window.api.removeAllListeners("error");
   }, []);
   useEffect(() => {
     if (!ref.current) return;
-    if (playing) ref.current.play();
-    else ref.current.pause();
-  }, [playing, ref.current]);
+    if (playing && ref.current.paused) ref.current.play();
+    else if (!playing && !ref.current.paused) ref.current.pause();
+  }, [playing, ref.current?.src]);
+  function handelSeek(readDuration: number) {
+    if (!ref.current) return;
+    const player = ref.current;
+    const VideoTime = readDuration - mediaDuration;
+    if (VideoTime < 0) return setCurDim({ ...curDim! });
+    try {
+      const endVal = player.buffered.end(player.buffered.length - 1);
+      if (VideoTime > endVal) {
+        setCurDim({ ...curDim! });
+      } else player.currentTime = start - mediaDuration;
+    } catch (error) {
+      setCurDim({ ...curDim! });
+    }
+  }
   return (
     <div>
       <div className="px-2">
@@ -82,23 +99,26 @@ export default function VideoViewer({
             }}
             onBoxResize={(dim) => {
               setCurDim(dim);
+              setPlaying(false);
             }}
-            onProgress={(player) => {
+            onTimeUpdate={(player) => {
               const playedSeconds = player.currentTarget.currentTime;
-              setCurDuration(playedSeconds);
-              if (playedSeconds < start) {
-                player.currentTarget.currentTime = start;
+              const realDuration = playedSeconds + mediaDuration;
+              setCurDuration(realDuration);
+              if (realDuration < start) {
+                handelSeek(start);
                 setCurDuration(start);
               }
-              if (playedSeconds >= end) {
+              if (realDuration >= end) {
                 if (loopState) {
-                  player.currentTarget.currentTime = start;
+                  handelSeek(start);
                   setCurDuration(start);
                 } else setPlaying(false);
               }
             }}
             onSeeked={(player) => {
-              const playedSeconds = player.currentTarget.currentTime;
+              const playedSeconds =
+                player.currentTarget.currentTime + mediaDuration;
               setCurDuration(playedSeconds);
             }}
             ref={ref}
@@ -107,13 +127,9 @@ export default function VideoViewer({
           <div className="absolute bottom-0 left-0 w-full">
             <ProgressBar
               onSetVal={(time) => {
-                if (time < start) {
-                  setDuration(time, end);
-                }
-                if (time >= end) {
-                  setDuration(start, time);
-                }
-                ref.current!.currentTime = time;
+                if (time < start) setStartEndCut(time, end);
+                else if (time >= end) setStartEndCut(start, time);
+                handelSeek(time);
                 setCurDuration(time);
               }}
               curTime={curDuration}
@@ -128,26 +144,23 @@ export default function VideoViewer({
             setDuration={(newStart, newEnd) => {
               if (!playing) {
                 if (newStart != start) {
-                  ref.current!.currentTime = newStart;
+                  handelSeek(newStart);
                   setCurDuration(newStart);
                 } else if (newEnd != end) {
-                  ref.current!.currentTime = newStart;
-
+                  handelSeek(newStart);
                   setCurDuration(newEnd);
                 }
               } else {
                 if (curDuration < start) {
-                  ref.current!.currentTime = start;
-
+                  handelSeek(start);
                   setCurDuration(start);
                 }
                 if (curDuration >= end) {
-                  ref.current!.currentTime = end;
-
+                  handelSeek(end);
                   setCurDuration(end - MIN_TIME);
                 }
               }
-              setDuration(newStart, newEnd);
+              setStartEndCut(newStart, newEnd);
             }}
             start={start}
           />
@@ -166,14 +179,13 @@ export default function VideoViewer({
           start={start}
           onDuration={(newStart, newEnd) => {
             if (newStart != start) {
-              ref.current!.currentTime = newStart;
+              handelSeek(newStart);
               setCurDuration(newStart);
             }
-            setDuration(newStart, newEnd);
+            setStartEndCut(newStart, newEnd);
           }}
           onSeek={(second) => {
-            ref.current!.currentTime = second;
-
+            handelSeek(second);
             setCurDuration(second);
           }}
           onSetState={setPlaying}

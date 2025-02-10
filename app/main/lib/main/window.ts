@@ -20,7 +20,6 @@ export class MainWindow extends BrowserWindow {
     if (this.currentReader && !this.currentReader.closed)
       this.currentReader.destroy();
     if (!this.reader) throw new Error("unrecognized video path");
-    console.log("seek");
     this.currentReader = this.reader.seek(props);
     const write = new Writable({
       write: (chunk: Buffer, _, callback) => {
@@ -33,7 +32,6 @@ export class MainWindow extends BrowserWindow {
       this.webContents.send("error", error);
     });
     this.currentReader.on("close", (error) => {
-      console.log("closed");
       this.webContents.send("close", error);
     });
     this.currentReader.pipe(write);
@@ -42,7 +40,7 @@ export class MainWindow extends BrowserWindow {
   async generate(...params: Parameters<SubtitlesRemover["generate"]>) {
     if (this.currentReader && !this.currentReader.closed)
       this.currentReader.destroy();
-    if (!this.remover) throw new Error("Uninitialized page");
+    if (!this.remover) throw new Error("unrecognized video path");
     this.reader = await this.remover.generate(...params);
     return this.reader;
   }

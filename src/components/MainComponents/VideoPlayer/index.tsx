@@ -15,35 +15,28 @@ export function ErrorMessage({ children }: { children: ReactNode }) {
 
 export default function VideoClipper() {
   const router = useRouter();
-  const [mediaSource, setMediaSource] = useState(new MediaSource());
   const { path, ...query } = router.query as {
     start?: string;
     end?: string;
     path?: string;
   };
-  const paramQuery = useQuery({
-    queryKey: ["video", path],
-    queryFn: async ({ signal }) => {
-      const result = await window.api.invoke("insertVideo", path!);
-
-      return { duration: parseFloat(result.duration!) };
-    },
-    enabled: path != undefined,
-    cacheTime: 1 * 1000 * 60,
-    staleTime: 1 * 1000 * 60,
-  });
+  const [err, setError] = useState<Error>();
+  const [duration, setDuration] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    if (!path) return;
+    window.api
+      .invoke("insertVideo", path!)
+      .then((result) => {
+        return setDuration(parseFloat(result.duration!));
+      })
+      .catch(setError)
+      .finally(() => setIsLoading(false));
+    setError(undefined);
+  }, [path]);
   if (!path) return null;
-  if (paramQuery.isLoading) return <Loading />;
-  if (paramQuery.isError) {
-    return (
-      <ErrorMessage>
-        There is a problem that occurred on the server.
-      </ErrorMessage>
-    );
-  }
-  if (!paramQuery.data)
-    return <ErrorMessage>The video is not exist</ErrorMessage>;
-  const duration = paramQuery.data.duration;
+  if (err) return <>{JSON.stringify(err)}</>;
+  if (isLoading) return <Loading />;
 
   const [start, end] = [
     getTime(query.start, 0, duration),

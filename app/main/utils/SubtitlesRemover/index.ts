@@ -59,6 +59,9 @@ export class SubtitlesRemover {
     const videoStream = videoStreams.find(
       (stream) => stream.codec_type === "video"
     )!;
+    const height = videoStream.height!;
+    const width = videoStream.width!;
+    const frame_size = width * height * 3;
     return {
       videoStream,
       seek: ({
@@ -74,6 +77,7 @@ export class SubtitlesRemover {
             const process = this.pythonProcess;
             this.pythonProcess.stdout.once("data", function G(data: Buffer) {
               callback(null, data);
+              console.log(data.length);
               process!.stdout.removeListener("data", G);
             });
             if (transform.closed) return;
@@ -96,9 +100,7 @@ export class SubtitlesRemover {
           if (!resultVideo.closed)
             transform.emit("error", new Error(err.toString()));
         });
-        const height = videoStream.height!;
-        const width = videoStream.width!;
-        const frame_size = width * height * 3;
+
         const fixed = new FixedSizeChunkStream(frame_size);
         fixed.pipe(transform);
         const resultVideo = new PassThrough();
@@ -127,6 +129,7 @@ export class SubtitlesRemover {
           .on("error", (e) => {
             if (!resultVideo.closed) resultVideo.emit("error", e);
           })
+          .fpsOutput(parseFloat(videoStream!.r_frame_rate!))
           .outputOptions([
             "-vcodec libx264",
             "-movflags faststart+separate_moof+empty_moov+default_base_moof",
