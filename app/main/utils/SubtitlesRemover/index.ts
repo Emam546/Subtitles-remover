@@ -77,7 +77,6 @@ export class SubtitlesRemover {
             const process = this.pythonProcess;
             this.pythonProcess.stdout.once("data", function G(data: Buffer) {
               callback(null, data);
-              console.log(data.length);
               process!.stdout.removeListener("data", G);
             });
             if (transform.closed) return;
@@ -97,51 +96,29 @@ export class SubtitlesRemover {
           },
         });
         this.pythonProcess.stderr.once("data", (err: Buffer) => {
-          if (!resultVideo.closed)
+          if (!transform.closed)
             transform.emit("error", new Error(err.toString()));
         });
 
         const fixed = new FixedSizeChunkStream(frame_size);
         fixed.pipe(transform);
-        const resultVideo = new PassThrough();
+        // const resultVideo = new PassThrough();
         const process = ffmpeg(videoPath)
           .setStartTime(duration)
           .outputFormat("image2pipe")
           .addOption("-pix_fmt bgr24")
           .videoCodec("rawvideo")
           .on("error", (e) => {
-            if (!resultVideo.closed) resultVideo.emit("error", e);
+            if (!transform.closed) transform.emit("error", e);
           });
 
         process.pipe(fixed);
-        const secondProcess = ffmpeg(transform)
-          .inputOptions([
-            "-y",
-            "-f rawvideo",
-            "-vcodec rawvideo",
-            "-pix_fmt bgr24",
-            `-s ${videoStream!.width}:${videoStream!.height}`,
-          ])
-          .noAudio()
-          .FPS(parseFloat(videoStream!.r_frame_rate!))
-          .output(resultVideo)
-          .outputFormat("mp4")
-          .on("error", (e) => {
-            if (!resultVideo.closed) resultVideo.emit("error", e);
-          })
-          .fpsOutput(parseFloat(videoStream!.r_frame_rate!))
-          .outputOptions([
-            "-vcodec libx264",
-            "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-          ]);
 
-        resultVideo.on("close", () => {
-          transform.destroy();
+        transform.on("close", () => {
           process.kill("");
-          secondProcess.kill("");
+          console.log("transform closed");
         });
-        secondProcess.run();
-        return resultVideo;
+        return transform;
       },
     };
   }
