@@ -32,7 +32,7 @@ export default function SharedLayout({
               </p>
             </section>
             <InputHolder />
-            {components}
+            <section className="my-4">{components}</section>
             {children}
           </main>
 

@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import Loading from "../../common/Loading";
 import { useRouter } from "next/router";
 import VideoViewer from "../Viewer";
 import { getTime } from "@src/utils/time";
+import Ffmpeg from "fluent-ffmpeg";
+import { predictSubtitleBox } from "@src/utils";
 
 export function ErrorMessage({ children }: { children: ReactNode }) {
   return (
@@ -21,23 +22,35 @@ export default function VideoClipper() {
     path?: string;
   };
   const [err, setError] = useState<Error>();
-  const [duration, setDuration] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<{
+    duration: number;
+    videoStream: Ffmpeg.FfprobeStream;
+    path: string;
+  }>();
   useEffect(() => {
     if (!path) return;
+    if (data?.path == path) return;
+    const controller = new AbortController();
     window.api
       .invoke("insertVideo", path!)
       .then((result) => {
-        return setDuration(parseFloat(result.duration!));
+        if (controller.signal.aborted) return;
+        setData({
+          duration: Math.floor(parseFloat(result.duration!)),
+          path: path,
+          videoStream: { ...result },
+        });
       })
-      .catch(setError)
-      .finally(() => setIsLoading(false));
+      .catch(setError);
     setError(undefined);
+    return () => {
+      controller.abort();
+    };
   }, [path]);
   if (!path) return null;
   if (err) return <>{JSON.stringify(err)}</>;
-  if (isLoading) return <Loading />;
-
+  if (!data || data.path != path) return <Loading />;
+  const duration = data.duration;
   const [start, end] = [
     getTime(query.start, 0, duration),
     getTime(query.end, duration, duration),
@@ -49,7 +62,11 @@ export default function VideoClipper() {
         end={end}
         duration={duration}
         path={path}
-        setDuration={(start, end) => {
+        defaultBox={predictSubtitleBox(
+          data.videoStream.width!,
+          data.videoStream.height!
+        )}
+        setStartEndCut={(start, end) => {
           router.replace(
             {
               pathname: router.pathname, // Keep the current path

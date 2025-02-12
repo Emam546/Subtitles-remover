@@ -65,8 +65,8 @@ def main():
 
             sys.stdout.flush()
         except Exception as e:
-            sys.stdout.write(e.__str__())
-            sys.stdout.flush()
+            sys.stderr.write(e.__str__())
+            sys.stderr.flush()
 
 
 if __name__ == "__main__":

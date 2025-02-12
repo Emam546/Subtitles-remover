@@ -127,7 +127,7 @@ export function RangeTracker({
     <Range
       step={1}
       min={0}
-      max={duration}
+      max={Math.floor(duration)}
       values={[start, end]}
       onChange={([newStart, newEnd]) => {
         const MaxStart = Math.max(Math.min(duration, MIN_TIME), end - MIN_TIME);

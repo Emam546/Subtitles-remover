@@ -3,12 +3,14 @@ import { RangeTracker, MIN_TIME } from "./range";
 import Controls, { AspectsType } from "./controls";
 import { ProgressBar } from "./progressBar";
 import AdvancedReactPlayer, { Dimensions } from "./player";
+import ColorRangeSelector, { ValueProps } from "./colorRange";
 export interface Props {
   duration: number;
   start: number;
   end: number;
-  setDuration(start: number, end: number): any;
+  setStartEndCut(start: number, end: number): any;
   path: string;
+  defaultBox: Dimensions;
 }
 const mimeType =
   'video/mp4; codecs="avc1.f4000c"; profiles="isom,iso2,avc1,iso6,mp41"';
@@ -17,15 +19,23 @@ export default function VideoViewer({
   duration,
   start,
   end,
-  setDuration: setStartEndCut,
+  defaultBox,
+  setStartEndCut,
 }: Props) {
   const [playing, setPlaying] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
-  const [curDim, setCurDim] = useState<Dimensions>();
+  const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
   const [curDuration, setCurDuration] = useState(start);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
+  const [colorRange, setColorRange] = useState<ValueProps>({
+    colorRange: {
+      min: [210, 210, 210],
+      max: [255, 255, 255],
+    },
+    size: 8,
+  });
   useEffect(() => {
     setCurDuration(start);
   }, [path]);
@@ -34,43 +44,64 @@ export default function VideoViewer({
     const mediaSource = new MediaSource();
     const url = URL.createObjectURL(mediaSource);
     ref.current.src = url;
-    mediaSource.addEventListener("sourceopen", () => {
+    let f: Function;
+    const listener = () => {
       if (
         mediaSource.readyState != "open" ||
         mediaSource.sourceBuffers.length > 0
       )
         return;
-    mediaSource.duration = duration - curDuration;
-      
+      mediaSource.duration = duration - curDuration;
       const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
       window.api.send("seek", {
         startTime: curDuration,
-        colorRange: { min: [200, 200, 200], max: [255, 255, 255] },
-        radius: 2,
-        roi: curDim || { x: 0, y: 0, width: 5, height: 5 },
+        roi: curDim,
+        ...colorRange,
       });
-      window.api.on("chunk", (_, chunk) => {
+      f = window.api.on("chunk", function G(_, chunk) {
+        if (mediaSource.readyState != "open") return f();
         if (!sourceBuffer.updating) sourceBuffer.appendBuffer(chunk);
+        else
+          sourceBuffer.addEventListener(
+            "updateend",
+            () => {
+              G(_, chunk);
+            },
+            { once: true }
+          );
       });
+    };
+    mediaSource.addEventListener("sourceopen", listener);
+    mediaSource.addEventListener("sourceclose", () => {
+      f?.();
+      URL.revokeObjectURL(url);
     });
     setMediaDuration(curDuration);
     return () => {
       URL.revokeObjectURL(url);
-      window.api.removeAllListeners("chunk");
+      mediaSource.removeEventListener("sourceopen", listener);
+      f?.();
     };
-  }, [curDim, ref.current, path]);
+  }, [curDim, ref, colorRange, path]);
   useEffect(() => {}, []);
   useEffect(() => {
     window.api.on("error", (_, e) => {
+      // eslint-disable-next-line no-console
       console.error(e);
     });
     return () => window.api.removeAllListeners("error");
   }, []);
   useEffect(() => {
     if (!ref.current) return;
-    if (playing && ref.current.paused) ref.current.play();
-    else if (!playing && !ref.current.paused) ref.current.pause();
-  }, [playing, ref.current?.src]);
+    const isPlayingState =
+      ref.current.currentTime > 0 &&
+      !ref.current.paused &&
+      !ref.current.ended &&
+      ref.current.readyState > ref.current.HAVE_CURRENT_DATA;
+    if (playing && !isPlayingState) ref.current.play();
+    else if (!playing && isPlayingState) ref.current.pause();
+  }, [playing, ref.current]);
+
   function handelSeek(readDuration: number) {
     if (!ref.current) return;
     const player = ref.current;
@@ -95,6 +126,12 @@ export default function VideoViewer({
             height="100%"
             width="100%"
             onPause={() => {
+              setPlaying(false);
+            }}
+            onPlay={() => {
+              setPlaying(true);
+            }}
+            onLoadStart={() => {
               setPlaying(false);
             }}
             onBoxResize={(dim) => {
@@ -189,6 +226,13 @@ export default function VideoViewer({
             setCurDuration(second);
           }}
           onSetState={setPlaying}
+        />
+      </div>
+      <div className="py-2">
+        <ColorRangeSelector
+          onChange={setColorRange}
+          val={colorRange}
+          id={path}
         />
       </div>
     </div>

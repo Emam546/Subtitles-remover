@@ -4,7 +4,7 @@ import {
   SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
 import { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
-import { Readable, Writable } from "stream";
+import { Writable } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 export class MainWindow extends BrowserWindow {
   public static Window: BrowserWindow | null = null;
@@ -24,7 +24,7 @@ export class MainWindow extends BrowserWindow {
     const write = new Writable({
       write: (chunk: Buffer, _, callback) => {
         this.webContents.send("chunk", chunk);
-        callback();
+        callback(null);
       },
     });
     const videoStream = this.reader.videoStream;
@@ -33,45 +33,43 @@ export class MainWindow extends BrowserWindow {
       .r_frame_rate!.split("/")
       .map(Number);
     const fps = numerator / denominator;
-
     const secondProcess = ffmpeg(reader)
       .inputOptions([
         "-y",
         "-f rawvideo",
+        `-r ${fps}`,
         "-vcodec rawvideo",
         "-pix_fmt bgr24",
         `-s ${videoStream!.width}:${videoStream!.height}`,
       ])
       .noAudio()
-      .FPS(fps)
       .output(write)
       .outputFormat("mp4")
       .on("error", (e) => {
         if (!write.closed) write.emit("error", e);
       })
-      .fpsOutput(fps)
       .outputOptions([
         "-vcodec libx264",
         "-movflags faststart+separate_moof+empty_moov+default_base_moof",
       ]);
-    secondProcess.run();
-    reader.on("error", (error) => {
-      console.error(error);
+
+    write.on("error", (error) => {
       this.webContents.send("error", error);
     });
-    reader.on("close", (error) => {
-      this.webContents.send("close", error);
+    reader.on("close", () => {
+      this.webContents.send("close");
     });
 
     write.on("close", () => {
       reader.destroy();
       secondProcess.kill("");
-      console.log("killed");
     });
     this.currentWriter = write;
+    secondProcess.run();
     return write;
   }
   async generate(...params: Parameters<SubtitlesRemover["generate"]>) {
+    console.log("generated");
     if (this.currentWriter && !this.currentWriter.closed)
       this.currentWriter.destroy();
     if (!this.remover) throw new Error("unrecognized video path");

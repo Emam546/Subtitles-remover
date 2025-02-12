@@ -2,7 +2,7 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { app } from "electron";
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
-import { PassThrough, Readable, Transform, Writable } from "stream";
+import { Readable, Transform } from "stream";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
 
 export interface Dimensions {
@@ -15,7 +15,7 @@ export interface SeekProps {
   startTime: number;
   roi: Dimensions;
   colorRange: { min: [number, number, number]; max: [number, number, number] };
-  radius: number;
+  size: number;
 }
 const pythonPath =
   app && app.isPackaged
@@ -30,7 +30,7 @@ class FixedSizeChunkStream extends Transform {
     this.chunkSize = chunkSize;
   }
 
-  _transform(chunk: Buffer, encoding: BufferEncoding, callback: Function) {
+  _transform(chunk: Buffer, _: BufferEncoding, callback: Function) {
     this.buffer = Buffer.concat([this.buffer, chunk] as Array<any>);
 
     while (this.buffer.length >= this.chunkSize) {
@@ -68,7 +68,7 @@ export class SubtitlesRemover {
         startTime: duration,
         roi,
         colorRange,
-        radius,
+        size,
       }: SeekProps): Readable => {
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
@@ -76,8 +76,10 @@ export class SubtitlesRemover {
             if (!this.pythonProcess) throw new Error("Unrecognized process");
             const process = this.pythonProcess;
             this.pythonProcess.stdout.once("data", function G(data: Buffer) {
+              process!.stdout.removeAllListeners("data");
+              if (data.length != chunk.length)
+                return callback(new Error(data.toString("utf-8")));
               callback(null, data);
-              process!.stdout.removeListener("data", G);
             });
             if (transform.closed) return;
             this.pythonProcess.stdin.write(
@@ -85,7 +87,7 @@ export class SubtitlesRemover {
                 image: chunk.toString("base64"),
                 roi: [roi.x, roi.y, roi.width, roi.height],
                 color_range: [colorRange.min, colorRange.max],
-                radius,
+                size,
                 width,
                 height,
               }) + "\n",
@@ -95,14 +97,14 @@ export class SubtitlesRemover {
             );
           },
         });
-        this.pythonProcess.stderr.once("data", (err: Buffer) => {
+        const errCall = (err: Buffer) => {
           if (!transform.closed)
             transform.emit("error", new Error(err.toString()));
-        });
+        };
+        this.pythonProcess.stderr.once("data", errCall);
 
         const fixed = new FixedSizeChunkStream(frame_size);
         fixed.pipe(transform);
-        // const resultVideo = new PassThrough();
         const process = ffmpeg(videoPath)
           .setStartTime(duration)
           .outputFormat("image2pipe")
@@ -111,12 +113,10 @@ export class SubtitlesRemover {
           .on("error", (e) => {
             if (!transform.closed) transform.emit("error", e);
           });
-
         process.pipe(fixed);
-
         transform.on("close", () => {
           process.kill("");
-          console.log("transform closed");
+          this.pythonProcess?.stderr.removeListener("data", errCall);
         });
         return transform;
       },
@@ -128,7 +128,7 @@ export class SubtitlesRemover {
         console.error(e);
         rej(e);
       });
-      this.pythonProcess.stdout.once("data", (data: Buffer) => {
+      this.pythonProcess.stdout.once("data", () => {
         res();
       });
       this.pythonProcess.stderr.on("data", (e: Buffer) =>

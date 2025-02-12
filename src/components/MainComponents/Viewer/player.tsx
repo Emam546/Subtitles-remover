@@ -3,30 +3,14 @@ import { Rnd } from "react-rnd";
 import { useSyncRefs } from "@src/hooks";
 import React, { ComponentProps, useEffect, useState } from "react";
 import classNames from "classnames";
-export interface Dimensions {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
+import { Dimensions, predictSubtitleBox } from "@src/utils";
+export type { Dimensions } from "@src/utils";
 export interface Props extends ComponentProps<"video"> {
   aspect?: "16:9" | "4:3";
   id: string;
   onBoxResize: (dim: Dimensions) => any;
 }
-function predictSubtitleBox(
-  videoWidth: number,
-  videoHeight: number
-): Dimensions {
-  const paddingBottom = videoHeight * 0.05; // 5% padding from bottom
-  const boxHeight = videoHeight * 0.1; // Subtitle height ~10% of video height
-  const boxWidth = videoWidth * 0.8; // Subtitle width ~80% of video width
-  const x = (videoWidth - boxWidth) / 2; // Centered horizontally
-  const y = videoHeight - boxHeight - paddingBottom; // Positioned above padding
 
-  return { x, y, width: boxWidth, height: boxHeight };
-}
 const getVideoElementDimensions = (video: HTMLVideoElement): Dimensions => {
   const videoAspectRatio = video.videoWidth / video.videoHeight;
   const elementAspectRatio = video.clientWidth / video.clientHeight;
@@ -98,13 +82,10 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     );
     return (
       <div
-        className={classNames(
-          "relative bg-black/90",
-          {
-            "aspect-video": aspect == "16:9",
-            "aspect-[4/3]": aspect == "4:3",
-          }
-        )}
+        className={classNames("relative bg-black/90", {
+          "aspect-video": aspect == "16:9",
+          "aspect-[4/3]": aspect == "4:3",
+        })}
       >
         <video {...props} ref={allRef} className="w-full h-full"></video>
         {dimensions && rndDimensions && (

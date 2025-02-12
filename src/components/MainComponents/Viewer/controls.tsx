@@ -113,7 +113,7 @@ interface LoopProps {
 }
 function LoopComp({ loop, setLoop }: LoopProps) {
   return (
-    <div className="items-center flex">
+    <div className="flex items-center">
       <span>Loop: </span>
 
       <button
@@ -201,9 +201,9 @@ export default function Controls({
   onSetState,
 }: Props) {
   return (
-    <div className="flex justify-between flex-wrap gap-y-4 gap-x-2">
+    <div className="flex flex-wrap justify-between gap-y-4 gap-x-2">
       <div className="flex items-center gap-x-4">
-        <div className="flex rounded overflow-hidden text-gray-100 text-lg">
+        <div className="flex overflow-hidden text-lg text-gray-100 rounded">
           <ControlButton
             title="Play"
             onClick={() => {
@@ -223,7 +223,7 @@ export default function Controls({
             <FontAwesomeIcon icon={faRotateLeft} />
           </ControlButton>
           <ControlButton
-            onClick={() => onSeek?.(end - 5)}
+            onClick={() => onSeek?.(end)}
             title="jumb to end selection"
           >
             <FontAwesomeIcon icon={faRotateRight} />
@@ -238,8 +238,8 @@ export default function Controls({
           <span>{convertSecondsToHHMMSS(duration)}</span>
         </p>
       </div>
-      <div className="flex gap-x-2 items-center flex-wrap text-lg gap-y-4">
-        <div className="flex gap-x-2 items-center">
+      <div className="flex flex-wrap items-center text-lg gap-x-2 gap-y-4">
+        <div className="flex items-center gap-x-2">
           <div>
             <TimeGetter
               id="start-input"
@@ -264,7 +264,7 @@ export default function Controls({
             />
           </div>
         </div>
-        <div className="flex gap-x-2 items-center">
+        <div className="flex items-center gap-x-2">
           <LengthComp start={start} end={end} />
           <LoopComp loop={loop} setLoop={(state) => onSetLoop?.(state)} />
         </div>

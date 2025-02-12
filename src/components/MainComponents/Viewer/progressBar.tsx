@@ -43,13 +43,13 @@ export function ProgressBar({ curTime, duration, onSetVal }: ProgressBarProps) {
         onSetVal(time);
       }}
       renderTrack={({ children, props }) => (
-        <div className="group video-time w-full bg-black/25 h-2 relative">
+        <div className="relative w-full h-2 group video-time bg-black/25">
           <div
             className={classNames(
               "bg-blue-400 h-full absolute left-0 top-0 outline-none"
             )}
             style={{
-              width: `${(curTime / duration) * 100}%`,
+              width: `${Math.min(100, (curTime / duration) * 100)}%`,
             }}
           />
           <div className="w-full h-full " {...props}>
