@@ -12,7 +12,7 @@ export interface Props {
   path: string;
   defaultBox: Dimensions;
 }
-const mimeType =
+const videoMimeType =
   'video/mp4; codecs="avc1.f4000c"; profiles="isom,iso2,avc1,iso6,mp41"';
 export default function VideoViewer({
   path,
@@ -23,7 +23,8 @@ export default function VideoViewer({
   setStartEndCut,
 }: Props) {
   const [playing, setPlaying] = useState(false);
-  const ref = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const kernelVideoRef = useRef<HTMLVideoElement>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
   const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
@@ -40,49 +41,137 @@ export default function VideoViewer({
     setCurDuration(start);
   }, [path]);
   useEffect(() => {
-    if (!ref.current) return;
+    if (!videoRef.current) return;
+    if (!kernelVideoRef.current) return;
     const mediaSource = new MediaSource();
     const url = URL.createObjectURL(mediaSource);
-    ref.current.src = url;
-    let f: Function;
-    const listener = () => {
-      if (
-        mediaSource.readyState != "open" ||
-        mediaSource.sourceBuffers.length > 0
-      )
-        return;
-      mediaSource.duration = duration - curDuration;
-      const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-      window.api.send("seek", {
-        startTime: curDuration,
-        roi: curDim,
-        ...colorRange,
+    videoRef.current.src = url;
+    let clear: Function;
+
+    mediaSource.addEventListener("sourceopen", () => {
+      const kernelMediaSource = new MediaSource();
+      const url = (kernelVideoRef.current!.src =
+        URL.createObjectURL(kernelMediaSource));
+      kernelMediaSource.addEventListener("sourceopen", () => {
+        if (mediaSource.readyState != "open") return;
+        mediaSource.duration = duration - curDuration;
+        const videoBuffer = mediaSource.addSourceBuffer(videoMimeType);
+        // const audioBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+        const kernelVideoBuffer =
+          kernelMediaSource.addSourceBuffer(videoMimeType);
+        window.api.send("seek", {
+          startTime: curDuration,
+          roi: curDim,
+          ...colorRange,
+        });
+        let queueVideo: Buffer[] = [];
+        let queueKernelVideo: Buffer[] = [];
+        let queueAudio: Buffer[] = [];
+        const f = window.api.on("chunk", function G(_, chunk) {
+          if (mediaSource.readyState != "open") return f();
+          if (!videoBuffer.updating) {
+            if (queueVideo.length > 0) {
+              videoBuffer.appendBuffer(
+                Buffer.concat([...queueVideo, chunk] as any)
+              );
+              queueVideo = [];
+            } else videoBuffer.appendBuffer(chunk);
+          } else queueVideo.push(chunk);
+        });
+        const end = window.api.on("close", function G() {
+          if (!videoBuffer.updating) {
+            if (queueVideo.length > 0) {
+              videoBuffer.appendBuffer(Buffer.concat([...queueVideo] as any));
+              queueVideo = [];
+            }
+          } else
+            videoBuffer.addEventListener(
+              "updateend",
+              () => {
+                G();
+              },
+              { once: true }
+            );
+        });
+        const f3 = window.api.on("kernel-chunk", function G(_, chunk) {
+          if (!kernelVideoBuffer.updating) {
+            if (queueKernelVideo.length > 0) {
+              kernelVideoBuffer.appendBuffer(
+                Buffer.concat([...queueKernelVideo, chunk] as any)
+              );
+              queueKernelVideo = [];
+            } else kernelVideoBuffer.appendBuffer(chunk);
+          } else queueKernelVideo.push(chunk);
+        });
+        const end3 = window.api.on("kernel-close", function G() {
+          if (!kernelVideoBuffer.updating) {
+            if (queueKernelVideo.length > 0) {
+              kernelVideoBuffer.appendBuffer(
+                Buffer.concat([...queueKernelVideo] as any)
+              );
+              queueKernelVideo = [];
+            }
+          } else
+            kernelVideoBuffer.addEventListener(
+              "updateend",
+              () => {
+                G();
+              },
+              { once: true }
+            );
+        });
+        clear = () => {
+          f();
+          end();
+          f3();
+          end3();
+          if (kernelVideoRef.current) kernelVideoRef.current.src = "";
+          URL.revokeObjectURL(url);
+        };
+        // f2 = window.api.on("audio-chunk", function G(_, chunk) {
+        //   if (mediaSource.readyState != "open") return f();
+        //   if (!audioBuffer.updating) {
+        //     if (queueAudio.length > 0) {
+        //       audioBuffer.appendBuffer(
+        //         Buffer.concat([...queueAudio, chunk] as any)
+        //       );
+        //       queueAudio = [];
+        //     } else audioBuffer.appendBuffer(chunk);
+        //   } else queueVideo.push(chunk);
+        // });
+        // end2 = window.api.on("audio-close", function G() {
+        //   if (!audioBuffer.updating) {
+        //     if (queueAudio.length > 0) {
+        //       audioBuffer.appendBuffer(Buffer.concat([...queueAudio] as any));
+        //       queueAudio = [];
+        //     }
+        //   } else
+        //     audioBuffer.addEventListener(
+        //       "updateend",
+        //       () => {
+        //         G();
+        //       },
+        //       { once: true }
+        //     );
+        // });
       });
-      f = window.api.on("chunk", function G(_, chunk) {
-        if (mediaSource.readyState != "open") return f();
-        if (!sourceBuffer.updating) sourceBuffer.appendBuffer(chunk);
-        else
-          sourceBuffer.addEventListener(
-            "updateend",
-            () => {
-              G(_, chunk);
-            },
-            { once: true }
-          );
-      });
-    };
-    mediaSource.addEventListener("sourceopen", listener);
-    mediaSource.addEventListener("sourceclose", () => {
-      f?.();
-      URL.revokeObjectURL(url);
+      clear = () => {
+        if (kernelVideoRef.current) kernelVideoRef.current.src = "";
+        URL.revokeObjectURL(url);
+      };
     });
+    mediaSource.addEventListener("sourceclose", () => {
+      removeListeners();
+    });
+    const removeListeners = () => {
+      URL.revokeObjectURL(url);
+      clear?.();
+    };
     setMediaDuration(curDuration);
     return () => {
-      URL.revokeObjectURL(url);
-      mediaSource.removeEventListener("sourceopen", listener);
-      f?.();
+      removeListeners();
     };
-  }, [curDim, ref, colorRange, path]);
+  }, [curDim, kernelVideoRef, videoRef, colorRange, path]);
   useEffect(() => {}, []);
   useEffect(() => {
     window.api.on("error", (_, e) => {
@@ -92,29 +181,30 @@ export default function VideoViewer({
     return () => window.api.removeAllListeners("error");
   }, []);
   useEffect(() => {
-    if (!ref.current) return;
+    if (!videoRef.current) return;
     const isPlayingState =
-      ref.current.currentTime > 0 &&
-      !ref.current.paused &&
-      !ref.current.ended &&
-      ref.current.readyState > ref.current.HAVE_CURRENT_DATA;
-    if (playing && !isPlayingState) ref.current.play();
-    else if (!playing && isPlayingState) ref.current.pause();
-  }, [playing, ref.current]);
+      videoRef.current.currentTime > 0 &&
+      !videoRef.current.paused &&
+      !videoRef.current.ended &&
+      videoRef.current.readyState > videoRef.current.HAVE_CURRENT_DATA;
+    if (playing && !isPlayingState) videoRef.current.play();
+    else if (!playing && isPlayingState) videoRef.current.pause();
+  }, [playing, videoRef.current]);
 
   function handelSeek(readDuration: number) {
-    if (!ref.current) return;
-    const player = ref.current;
-    const VideoTime = readDuration - mediaDuration;
-    if (VideoTime < 0) return setCurDim({ ...curDim! });
-    try {
-      const endVal = player.buffered.end(player.buffered.length - 1);
-      if (VideoTime > endVal) {
-        setCurDim({ ...curDim! });
-      } else player.currentTime = start - mediaDuration;
-    } catch (error) {
-      setCurDim({ ...curDim! });
-    }
+    // if (!ref.current) return;
+    // const player = ref.current;
+    // const VideoTime = readDuration - mediaDuration;
+    // if (VideoTime < 0) return setCurDim({ ...curDim! });
+    // try {
+    //   const endVal = player.buffered.end(player.buffered.length - 1);
+    //   if (VideoTime > endVal) {
+    //     setCurDim({ ...curDim! });
+    //   } else player.currentTime = start - mediaDuration;
+    // } catch (error) {
+    //   setCurDim({ ...curDim! });
+    // }
+    setCurDim({ ...curDim! });
   }
   return (
     <div>
@@ -127,9 +217,11 @@ export default function VideoViewer({
             width="100%"
             onPause={() => {
               setPlaying(false);
+              kernelVideoRef.current?.pause();
             }}
             onPlay={() => {
               setPlaying(true);
+              kernelVideoRef.current?.play();
             }}
             onLoadStart={() => {
               setPlaying(false);
@@ -158,7 +250,7 @@ export default function VideoViewer({
                 player.currentTarget.currentTime + mediaDuration;
               setCurDuration(playedSeconds);
             }}
-            ref={ref}
+            ref={videoRef}
           />
 
           <div className="absolute bottom-0 left-0 w-full">
@@ -184,7 +276,7 @@ export default function VideoViewer({
                   handelSeek(newStart);
                   setCurDuration(newStart);
                 } else if (newEnd != end) {
-                  handelSeek(newStart);
+                  handelSeek(newEnd);
                   setCurDuration(newEnd);
                 }
               } else {
@@ -193,7 +285,7 @@ export default function VideoViewer({
                   setCurDuration(start);
                 }
                 if (curDuration >= end) {
-                  handelSeek(end);
+                  handelSeek(end - MIN_TIME);
                   setCurDuration(end - MIN_TIME);
                 }
               }
@@ -230,9 +322,10 @@ export default function VideoViewer({
       </div>
       <div className="py-2">
         <ColorRangeSelector
-          onChange={setColorRange}
-          val={colorRange}
+          onColorParams={setColorRange}
+          colorParams={colorRange}
           id={path}
+          ref={kernelVideoRef}
         />
       </div>
     </div>

@@ -22,7 +22,7 @@ def image_2_png(image: np.ndarray) -> str:
 
 def process_image(image: np.ndarray, roi: Tuple[int, int, int, int], size=3,
                   color_range: Iterable = ((200, 200, 200), (255, 255, 255)),
-                  radius: int = 2, flags=cv2.INPAINT_TELEA) -> np.ndarray:
+                  radius: int = 2, flags=cv2.INPAINT_TELEA):
     """Apply inpainting to the specified region."""
     x, y, w, h = roi
     kernel = np.ones((size, size), np.uint8)
@@ -32,7 +32,7 @@ def process_image(image: np.ndarray, roi: Tuple[int, int, int, int], size=3,
     opening = cv2.dilate(mask, kernel)
     cropped_img = cv2.inpaint(cropped_img, opening, radius, flags)
     image[y:y+h, x:x+w] = cropped_img
-    return image
+    return image, np.array(cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR), np.uint8)
 
 
 def main():
@@ -58,10 +58,13 @@ def main():
             flags = data.get("flags", cv2.INPAINT_TELEA)
 
             # Process image
-            processed_image = process_image(
+            processed_image, kernel = process_image(
                 image, roi, size, color_range, radius, flags)
             # Encode and output result
-            sys.stdout.buffer.write(processed_image)
+            sys.stdout.write(json.dumps({
+                "image":  base64.b64encode(processed_image.tobytes()).decode('utf-8'),
+                "kernel": base64.b64encode(kernel.tobytes()).decode('utf-8')
+            }))
 
             sys.stdout.flush()
         except Exception as e:

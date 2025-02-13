@@ -2,7 +2,7 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { app } from "electron";
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
-import { Readable, Transform } from "stream";
+import { PassThrough, Readable, Transform } from "stream";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
 
 export interface Dimensions {
@@ -49,6 +49,10 @@ class FixedSizeChunkStream extends Transform {
     callback();
   }
 }
+interface TransformDataType {
+  image: Buffer;
+  kernel: Buffer;
+}
 export class SubtitlesRemover {
   pythonProcess?: ChildProcessWithoutNullStreams;
   async generate(videoPath: string) {
@@ -63,13 +67,17 @@ export class SubtitlesRemover {
     const width = videoStream.width!;
     const frame_size = width * height * 3;
     return {
+      videoPath,
       videoStream,
       seek: ({
         startTime: duration,
         roi,
         colorRange,
         size,
-      }: SeekProps): Readable => {
+      }: SeekProps): {
+        image: Readable;
+        kernel: Readable;
+      } => {
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
           transform: (chunk: Buffer, _, callback) => {
@@ -77,11 +85,8 @@ export class SubtitlesRemover {
             const process = this.pythonProcess;
             this.pythonProcess.stdout.once("data", function G(data: Buffer) {
               process!.stdout.removeAllListeners("data");
-              if (data.length != chunk.length)
-                return callback(new Error(data.toString("utf-8")));
-              callback(null, data);
+              callback(null, data.toString());
             });
-            if (transform.closed) return;
             this.pythonProcess.stdin.write(
               JSON.stringify({
                 image: chunk.toString("base64"),
@@ -114,11 +119,42 @@ export class SubtitlesRemover {
             if (!transform.closed) transform.emit("error", e);
           });
         process.pipe(fixed);
+        transform.on("error", (e) => {
+          console.error(e);
+        });
         transform.on("close", () => {
           process.kill("");
           this.pythonProcess?.stderr.removeListener("data", errCall);
         });
-        return transform;
+
+        return {
+          image: transform.pipe(
+            new PassThrough({
+              transform(chunk: string, _, callback) {
+                try {
+                  const res = JSON.parse(chunk) as {
+                    image: string;
+                    kernel: string;
+                  };
+                  callback(null, Buffer.from(res.image, "base64"));
+                } catch (error) {
+                  console.error(error);
+                }
+              },
+            })
+          ),
+          kernel: transform.pipe(
+            new PassThrough({
+              transform(chunk: string, _, callback) {
+                const res = JSON.parse(chunk) as {
+                  image: string;
+                  kernel: string;
+                };
+                callback(null, Buffer.from(res.kernel, "base64"));
+              },
+            })
+          ),
+        };
       },
     };
   }

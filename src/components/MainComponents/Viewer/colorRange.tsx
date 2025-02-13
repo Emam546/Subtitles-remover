@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+/* eslint-disable react/display-name */
+import React, { Component, ComponentProps, useEffect, useState } from "react";
 export interface ValueProps {
   colorRange: {
     min: [number, number, number];
@@ -6,16 +7,15 @@ export interface ValueProps {
   };
   size: number;
 }
-export interface ColorRangeSelectorProps {
-  onChange(val: ValueProps): any;
-  val: ValueProps;
+export interface ColorRangeSelectorProps extends ComponentProps<"video"> {
+  onColorParams(val: ValueProps): any;
+  colorParams: ValueProps;
   id: string;
 }
-export default function ColorRangeSelector({
-  onChange,
-  id,
-  val,
-}: ColorRangeSelectorProps) {
+const ColorRangeSelector = React.forwardRef<
+  HTMLVideoElement,
+  ColorRangeSelectorProps
+>(({ onColorParams: onChange, id, colorParams: val }, ref) => {
   const [minColor, setMinColor] = useState<[number, number, number]>(
     val.colorRange.min
   );
@@ -124,6 +124,7 @@ export default function ColorRangeSelector({
         <label className="block mb-2 text-lg font-medium text-gray-600">
           Color Preview
         </label>
+        <video className="w-full mx-auto my-2 rounded max-h-96" ref={ref} />
         <div
           className="w-full h-24 border rounded-[30px]"
           style={{
@@ -135,4 +136,5 @@ export default function ColorRangeSelector({
       </div>
     </div>
   );
-}
+});
+export default ColorRangeSelector;

@@ -56,11 +56,11 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
       const listener = () =>
         setDimensions(getVideoElementDimensions(videoElement));
       videoElement.addEventListener("loadedmetadata", listener);
-      videoElement.addEventListener("resize", listener);
+      // videoElement.addEventListener("resize", listener);
       window.addEventListener("resize", listener);
       return () => {
         videoElement.removeEventListener("loadedmetadata", listener);
-        videoElement.removeEventListener("resize", listener);
+        // videoElement.removeEventListener("resize", listener);
         window.removeEventListener("resize", listener);
       };
     }, [videoElement]);
@@ -75,7 +75,15 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
       return () => {
         videoElement.removeEventListener("canplay", listener);
       };
-    }, [videoElement, aspect, id]);
+    }, [videoElement, id]);
+    useEffect(() => {
+      if (!videoElement) return;
+      const listener = () => {
+        const dim = getVideoElementDimensions(videoElement);
+        setDimensions(dim);
+      };
+      if (videoElement.readyState >= 3) listener();
+    }, [aspect]);
     const allRef = useSyncRefs(
       ref,
       setVideoElement as React.RefCallback<HTMLVideoElement>

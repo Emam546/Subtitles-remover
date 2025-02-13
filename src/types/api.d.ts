@@ -28,6 +28,10 @@ export namespace ApiRender {
   interface OnMethods {
     chunk: (data: Buffer) => void;
     close: () => void;
+    "audio-chunk": (data: Buffer) => void;
+    "audio-close": (data: Buffer) => void;
+    "kernel-close": (data: Buffer) => void;
+    "kernel-chunk": (data: Buffer) => void;
     error: (e: Error) => void;
   }
   interface OnceMethods {}

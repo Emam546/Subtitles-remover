@@ -8,15 +8,15 @@ import { PassThrough, Writable } from "stream";
 
 const videoPath = path.join(__dirname, "./example.mp4");
 const outputPath = path.join(__dirname, "output.mp4");
+const subtitlesRemover = new SubtitlesRemover();
+beforeAll(async () => {
+  await subtitlesRemover.initialize();
+});
 describe("Test Subtitles Remover", () => {
-  jest.setTimeout(100000);
-  const subtitlesRemover = new SubtitlesRemover();
-  beforeAll(async () => {
-    await subtitlesRemover.initialize();
-  });
+  jest.setTimeout(10000);
   test("simple video", async () => {
     const remover = await subtitlesRemover.generate(videoPath);
-    const video = remover.seek({
+    const readers = remover.seek({
       startTime: 0,
       colorRange: {
         max: [255, 255, 255],
@@ -30,16 +30,23 @@ describe("Test Subtitles Remover", () => {
         height: 100,
       },
     });
+    const video = readers.image;
+    readers.kernel.pipe(
+      new Writable({
+        write(chunk, encoding, callback) {
+          callback();
+        },
+      })
+    );
     await new Promise<void>((res, rej) => {
-      const passThrough = new PassThrough();
       video.on("error", rej);
-      // video.on("data", () => console.log(DataTransfer.length));
-      video.pipe(passThrough);
+      video.on("close", res);
+      // video.on("data", (data) => console.log(data.length));
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);
       const fps = numerator / denominator;
-      ffmpeg(passThrough)
+      ffmpeg(video)
         .inputOptions([
           "-y",
           "-f rawvideo",
@@ -65,7 +72,7 @@ describe("Test Subtitles Remover", () => {
   });
   test("test with a seeking", async () => {
     const remover = await subtitlesRemover.generate(videoPath);
-    const video = remover.seek({
+    const readers = remover.seek({
       startTime: 2,
       colorRange: {
         max: [255, 255, 255],
@@ -79,6 +86,14 @@ describe("Test Subtitles Remover", () => {
         height: 100,
       },
     });
+    const video = readers.image;
+    readers.kernel.pipe(
+      new Writable({
+        write(chunk, encoding, callback) {
+          callback();
+        },
+      })
+    );
     await new Promise<void>((res, rej) => {
       const passThrough = new PassThrough();
       video.on("error", rej);
@@ -114,72 +129,25 @@ describe("Test Subtitles Remover", () => {
       .duration!;
     expect(duration).toBeLessThan(+remover.videoStream!.duration!);
   });
-  test("test for showing", async () => {
-    const remover = await subtitlesRemover.generate(videoPath);
-    const video = remover.seek({
-      startTime: 2,
-      colorRange: {
-        max: [255, 255, 255],
-        min: [0, 0, 0],
-      },
-      size: 8,
-      roi: {
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-      },
-    });
-    await new Promise<void>((res, rej) => {
-      const write = new Writable({
-        write: (chunk: Buffer, _, callback) => {
-          callback();
-        },
-      });
-      const videoStream = remover.videoStream;
+});
+test("test for audio stream", async () => {
+  const outputPath = path.join(__dirname, "output.mp3");
+  await new Promise<void>((res, rej) => {
+    const audioStream = fs.createWriteStream(outputPath);
+    ffmpeg(videoPath)
+      .noVideo()
+      .on("error", (e) => {
+        rej(e);
+      })
+      .format("mp3")
+      .output(audioStream)
+      .audioCodec("copy")
+      .run();
 
-      const [numerator, denominator] = videoStream
-        .r_frame_rate!.split("/")
-        .map(Number);
-      const fps = numerator / denominator;
-
-      const secondProcess = ffmpeg(video)
-        .inputOptions([
-          "-y",
-          "-f rawvideo",
-          `-r ${fps}`,
-          "-vcodec rawvideo",
-          "-pix_fmt bgr24",
-          `-s ${videoStream!.width}:${videoStream!.height}`,
-        ])
-        .noAudio()
-        .output(write)
-        .outputFormat("mp4")
-        .on("error", (e) => {
-          if (!write.closed) write.emit("error", e);
-        })
-        .outputOptions([
-          "-vcodec libx264",
-          "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-        ]);
-
-      video.on("error", (error) => {
-        rej(error);
-      });
-      write.on("close", () => {
-        res();
-      });
-
-      write.on("close", () => {
-        video.destroy();
-        secondProcess.kill("");
-      });
-      secondProcess.run();
-      return write;
-    });
-    const metaData = await getVideoInfo(outputPath);
-    const duration = +metaData.streams.find((s) => s.codec_type == "video")!
-      .duration!;
-    expect(duration).toBeLessThan(+remover.videoStream!.duration!);
+    audioStream.on("close", () => res());
   });
+  const metaData = await getVideoInfo(outputPath);
+  const duration = +metaData.streams.find((s) => s.codec_type == "audio")!
+    .duration!;
+  expect(duration).toBeGreaterThan(0);
 });
