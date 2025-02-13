@@ -56,7 +56,7 @@ export default function VideoViewer({
         if (mediaSource.readyState != "open") return;
         mediaSource.duration = duration - curDuration;
         const videoBuffer = mediaSource.addSourceBuffer(videoMimeType);
-        // const audioBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+        const audioBuffer = mediaSource.addSourceBuffer("audio/mpeg");
         const kernelVideoBuffer =
           kernelMediaSource.addSourceBuffer(videoMimeType);
         window.api.send("seek", {
@@ -120,40 +120,42 @@ export default function VideoViewer({
               { once: true }
             );
         });
+
+        const f2 = window.api.on("audio-chunk", function G(_, chunk) {
+          if (!audioBuffer.updating) {
+            if (queueAudio.length > 0) {
+              audioBuffer.appendBuffer(
+                Buffer.concat([...queueAudio, chunk] as any)
+              );
+              queueAudio = [];
+            } else audioBuffer.appendBuffer(chunk);
+          } else queueAudio.push(chunk);
+        });
+        const end2 = window.api.on("audio-close", function G() {
+          if (!audioBuffer.updating) {
+            if (queueAudio.length > 0) {
+              audioBuffer.appendBuffer(Buffer.concat([...queueAudio] as any));
+              queueAudio = [];
+            }
+          } else
+            audioBuffer.addEventListener(
+              "updateend",
+              () => {
+                G();
+              },
+              { once: true }
+            );
+        });
         clear = () => {
           f();
           end();
+          f2();
+          end2();
           f3();
           end3();
           if (kernelVideoRef.current) kernelVideoRef.current.src = "";
           URL.revokeObjectURL(url);
         };
-        // f2 = window.api.on("audio-chunk", function G(_, chunk) {
-        //   if (mediaSource.readyState != "open") return f();
-        //   if (!audioBuffer.updating) {
-        //     if (queueAudio.length > 0) {
-        //       audioBuffer.appendBuffer(
-        //         Buffer.concat([...queueAudio, chunk] as any)
-        //       );
-        //       queueAudio = [];
-        //     } else audioBuffer.appendBuffer(chunk);
-        //   } else queueVideo.push(chunk);
-        // });
-        // end2 = window.api.on("audio-close", function G() {
-        //   if (!audioBuffer.updating) {
-        //     if (queueAudio.length > 0) {
-        //       audioBuffer.appendBuffer(Buffer.concat([...queueAudio] as any));
-        //       queueAudio = [];
-        //     }
-        //   } else
-        //     audioBuffer.addEventListener(
-        //       "updateend",
-        //       () => {
-        //         G();
-        //       },
-        //       { once: true }
-        //     );
-        // });
       });
       clear = () => {
         if (kernelVideoRef.current) kernelVideoRef.current.src = "";
