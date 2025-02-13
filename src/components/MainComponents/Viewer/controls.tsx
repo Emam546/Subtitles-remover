@@ -145,7 +145,7 @@ export function FancyRadio({
       <label
         aria-checked={checked}
         className={classNames(
-          "px-3 py-2.5 aria-checked:bg-gray-500 aria-checked:text-gray-50 select-none cursor-pointer"
+          "px-3 py-2.5 block aria-checked:bg-gray-500 aria-checked:text-gray-50 select-none cursor-pointer"
         )}
         htmlFor={id}
       >
