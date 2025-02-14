@@ -35,6 +35,7 @@ export function ControlButton({
 }: ComponentProps<"button">) {
   return (
     <button
+      type="button"
       className={classNames(
         "flex items-center justify-center w-12 h-12 bg-blue-500 hover:bg-blue-600",
         className
@@ -224,7 +225,7 @@ export default function Controls({
           </ControlButton>
           <ControlButton
             onClick={() => onSeek?.(end)}
-            title="jumb to end selection"
+            title="jump to end selection"
           >
             <FontAwesomeIcon icon={faRotateRight} />
           </ControlButton>

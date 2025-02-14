@@ -54,7 +54,7 @@ def main():
             size = data.get("size", 3)
             color_range = tuple(
                 map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]])))
-            radius = data.get("radius", 2)
+            radius = data.get("radius", 4)
             flags = data.get("flags", cv2.INPAINT_TELEA)
 
             # Process image

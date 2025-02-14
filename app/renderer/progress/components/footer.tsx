@@ -13,7 +13,7 @@ export default function Footer() {
                     hidden: status == "completed",
                 })}
             >
-                <Button
+                {/* <Button
                     onClick={() => {
                         window.api.invoke(
                             "triggerConnection",
@@ -23,7 +23,7 @@ export default function Footer() {
                     disabled={!pageData.pause.enabled }
                 >
                     {pageData.pause.text}
-                </Button>
+                </Button> */}
                 <Button
                     onClick={() => {
                         window.api.send("cancel");

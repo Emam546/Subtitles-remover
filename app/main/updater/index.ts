@@ -20,7 +20,6 @@ autoUpdater.once("update-available", (update) => {
   console.log("update available", update.tag_name);
   console.log("Download the update");
   autoUpdater.downloadUpdate(update).then((asset) => {
-    console.log(asset?.name);
     autoUpdater.once("updater-downloaded", (savedFilePath) => {
       console.log("update finished");
       autoUpdater.quitAndInstall(savedFilePath);

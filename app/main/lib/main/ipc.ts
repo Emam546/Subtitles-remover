@@ -4,6 +4,8 @@ import { DownloadFileToDesktop } from "./utils/DownloadFile";
 import { ObjectEntries } from "@utils/index";
 import { ipcMain } from "electron";
 import { MainWindow } from "./window";
+import { Downloader } from "./utils/downloader";
+import { processVideo } from "./processVideo";
 
 type OnMethodsType = {
   [K in keyof ApiMain.OnMethods]: ConvertToIpCMainFunc<ApiMain.OnMethods[K]>;
@@ -37,6 +39,9 @@ export const OnceMethods: OnceMethodsType = {};
 export const HandleMethods: HandelMethodsType = {
   Download(_, ...args) {
     return DownloadFileToDesktop(...args);
+  },
+  processVideo(_, ...args) {
+    return processVideo(...args);
   },
   async insertVideo(e, ...params) {
     const window = MainWindow.fromWebContents(e.sender)!;

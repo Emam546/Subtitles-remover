@@ -35,7 +35,7 @@ export const OnMethods: OnMethodsType = {
       preloadData: {
         fileSize: window.fileSize || window.curSize,
         link: window.videoData.previewLink,
-        path: window.downloadingState.path,
+        path: window.fileStatus.path,
       },
     }).then(() => {
       window.close();
@@ -43,10 +43,7 @@ export const OnMethods: OnMethodsType = {
   },
 };
 export const OnceMethods: OnceMethodsType = {};
-export const HandleMethods: Pick<
-  HandelMethodsType,
-  "setThrottle" | "setSpeed" | "triggerConnection"
-> = {
+export const HandleMethods: HandelMethodsType = {
   triggerConnection: (e, state) => {
     const window = BaseDownloaderWindow.fromWebContents(e.sender);
     if (!window) return;

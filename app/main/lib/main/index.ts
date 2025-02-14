@@ -25,7 +25,9 @@ export const createMainWindow = async (
   const win = new MainWindow({
     ...options,
     icon: "build/icon.ico",
-    autoHideMenuBar:true,
+    autoHideMenuBar: true,
+    resizable: false,
+    show: false,
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,
@@ -60,6 +62,8 @@ export const createMainWindow = async (
       }
     });
   } else throw new Error("Unrecognized environment");
+  await win.initialize();
   win.show();
+  win.maximize();
   return win;
 };

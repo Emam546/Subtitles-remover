@@ -5,6 +5,7 @@ import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
 import { PassThrough, Writable } from "stream";
+import { spawn } from "child_process";
 
 const videoPath = path.join(__dirname, "./example.mp4");
 const outputPath = path.join(__dirname, "output.mp4");
@@ -29,6 +30,7 @@ describe("Test Subtitles Remover", () => {
         width: 100,
         height: 100,
       },
+      duration: 100000000,
     });
     const video = readers.image;
     readers.kernel.pipe(
@@ -103,7 +105,6 @@ describe("Test Subtitles Remover", () => {
         .r_frame_rate!.split("/")
         .map(Number);
       const fps = numerator / denominator;
-      console.log(numerator, denominator);
       ffmpeg(passThrough)
         .inputOptions([
           "-y",
@@ -150,4 +151,61 @@ test("test for audio stream", async () => {
   const duration = +metaData.streams.find((s) => s.codec_type == "audio")!
     .duration!;
   expect(duration).toBeGreaterThan(0);
+});
+test("Should First", async () => {
+  const remover = await subtitlesRemover.generate(videoPath);
+
+  const [numerator, denominator] = remover.videoStream
+    .r_frame_rate!.split("/")
+    .map(Number);
+  const fps = numerator / denominator;
+  const reader = remover.seek({
+    startTime: 0,
+    colorRange: {
+      max: [255, 255, 255],
+      min: [0, 0, 0],
+    },
+    size: 8,
+    roi: {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    },
+  });
+  await new Promise((res, rej) => {
+    reader.kernel.pipe(
+      new Writable({
+        write(chunk, encoding, callback) {
+          callback();
+        },
+      })
+    );
+    reader.image.on("error", rej);
+
+    ffmpeg()
+      .addInput(reader.image)
+      .inputOptions([
+        "-y",
+        "-f rawvideo",
+        `-r ${fps}`,
+        "-vcodec rawvideo",
+        "-pix_fmt bgr24",
+        `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
+      ])
+      .addInput(videoPath)
+      .output(outputPath)
+      .outputFormat("mp4")
+      .outputOptions(["-vcodec libx264", "-c:a copy", "-map 0:v", "-map 1:a"])
+      .on("progress", (percent) => {
+        const curSize = percent.targetSize * 1024;
+      })
+      .on("error", rej)
+      .on("end", res)
+      .run();
+  });
+  const metaData = await getVideoInfo(outputPath);
+  const duration = +metaData.streams.find((s) => s.codec_type == "video")!
+    .duration!;
+  expect(duration).toBeCloseTo(+remover.videoStream!.duration!, 0);
 });

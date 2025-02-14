@@ -1,21 +1,27 @@
 import "./ipc";
-import { BrowserWindowConstructorOptions, shell } from "electron";
+import { BrowserWindowConstructorOptions, globalShortcut, shell } from "electron";
 import path from "path";
-import { Context } from "@shared/renderer/progress";
+import { Context, ProgressBarState } from "@shared/renderer/progress";
 import { convertFunc } from "@utils/app";
-import { FfmpegWindow } from "./window";
-import { defaultPageData } from "@app/main/lib/progressBar/window";
-import { Props as NonClippedProps } from "../linkDownload";
+import { FfmpegWindow, FfmpegVideoData } from "./window";
+import {
+  defaultPageData,
+  DownloadingStatus,
+} from "@app/main/lib/progressBar/window";
 import { isDev } from "@app/main/utils";
+import { StateType } from "../../main/utils/downloader";
 
 export interface ClippedData {
   start: number;
   end: number;
 }
-export interface Props extends NonClippedProps {
-  clippedData: ClippedData;
+export interface Props {
+  preloadData: Omit<ProgressBarState, "status">;
+  stateData: StateType;
+  downloadingStatus?: DownloadingStatus;
+  ffmpegData: FfmpegVideoData;
 }
-export const createClippedProgressBarWindow = async (
+export const createProgressBarWindow = async (
   vars: Props,
   options?: BrowserWindowConstructorOptions
 ): Promise<FfmpegWindow> => {
@@ -55,10 +61,7 @@ export const createClippedProgressBarWindow = async (
         enableThrottle: preloadData.throttle,
       },
       videoData: { link: preloadData.link, video: preloadData.video },
-      ffmpegData: {
-        duration: vars.clippedData.end - vars.clippedData.start,
-        start: vars.clippedData.start,
-      },
+      ffmpegData: vars.ffmpegData,
       pageData: preloadData.pageData,
     }
   );
@@ -70,9 +73,19 @@ export const createClippedProgressBarWindow = async (
     await win.loadURL(
       `${process.env["ELECTRON_RENDERER_URL"] as string}/progress`
     );
-    win.webContents.openDevTools();
+    win.webContents.on("did-fail-load", () => {
+      win.webContents.reloadIgnoringCache();
+    });
+    globalShortcut.register("Ctrl+Shift+I", () => {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools();
+      } else {
+        win.webContents.openDevTools();
+      }
+    });
   } else await win.loadFile(path.join(__dirname, "../windows/progress.html"));
-  win.show();
+  await win.initialize();
   await win.download();
+  win.show();
   return win;
 };

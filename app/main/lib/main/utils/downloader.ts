@@ -1,6 +1,5 @@
 import { VideoDataClippedType, getFileName } from "@app/main/utils/index";
-import { BrowserWindow, dialog } from "electron";
-import fs from "fs-extra";
+import { dialog } from "electron";
 export interface Options {
   title: string;
   quality: string;
@@ -21,10 +20,7 @@ export async function GetFilePath(fileName: string) {
   if (canceled || !newpath) return null;
   return newpath;
 }
-export async function Downloader(
-  data: VideoDataClippedType,
-  window: BrowserWindow
-) {
+export async function Downloader(data: VideoDataClippedType) {
   const Name = getFileName(data);
   const { canceled, filePath: newpath } = await dialog.showSaveDialog({
     title: "Download Video",
@@ -35,17 +31,6 @@ export async function Downloader(
   });
   if (canceled || !newpath) return;
   let continued = false;
-  if (fs.pathExistsSync(newpath)) {
-    const { response } = await dialog.showMessageBox(window, {
-      type: "question",
-      buttons: ["Yes             ", "No, redownload the video"],
-      title: "Save",
-      defaultId: 0,
-      cancelId: 1,
-      message: "Do you want to start from where it stopped downloading",
-    });
-    continued = response == 0;
-  }
   return {
     path: newpath,
     continued,

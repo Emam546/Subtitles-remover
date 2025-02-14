@@ -14,6 +14,7 @@ export interface Dimensions {
 export interface SeekProps {
   startTime: number;
   roi: Dimensions;
+  duration?: number;
   colorRange: { min: [number, number, number]; max: [number, number, number] };
   size: number;
 }
@@ -70,9 +71,10 @@ export class SubtitlesRemover {
       videoPath,
       videoStream,
       seek: ({
-        startTime: duration,
+        startTime,
         roi,
         colorRange,
+        duration,
         size,
       }: SeekProps): {
         image: Readable;
@@ -110,8 +112,10 @@ export class SubtitlesRemover {
 
         const fixed = new FixedSizeChunkStream(frame_size);
         fixed.pipe(transform);
+
         const process = ffmpeg(videoPath)
-          .setStartTime(duration)
+          .setStartTime(startTime)
+          .outputOption(duration ? [`-t ${duration}`] : [])
           .outputFormat("image2pipe")
           .addOption("-pix_fmt bgr24")
           .videoCodec("rawvideo")

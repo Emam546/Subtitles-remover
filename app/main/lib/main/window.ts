@@ -54,7 +54,6 @@ export class MainWindow extends BrowserWindow {
         "-pix_fmt bgr24",
         `-s ${videoStream!.width}:${videoStream!.height}`,
       ])
-      .noAudio()
       .output(videoWrite)
       .outputFormat("mp4")
       .on("error", (e) => {
@@ -104,7 +103,7 @@ export class MainWindow extends BrowserWindow {
       reader.kernel.destroy();
       kernelVideoProcess.kill("");
     });
-    videoWrite.on("close", (e) => {
+    videoWrite.on("close", () => {
       reader.image.destroy();
       this.webContents.emit("close");
       videoProcess.kill("");
@@ -125,6 +124,9 @@ export class MainWindow extends BrowserWindow {
     this.reader = await this.remover.generate(...params);
     return this.reader;
   }
+  async initialize() {
+    this.remover = await generateSubtitlesRemover();
+  }
   constructor(options: BrowserWindowConstructorOptions) {
     super(options);
     if (!MainWindow.Window) {
@@ -135,11 +137,6 @@ export class MainWindow extends BrowserWindow {
       if (this.clearWriters) this.clearWriters();
       if (this.remover) this.remover.kill();
     });
-    this.on("ready-to-show", async () => {
-      if (!this.remover) {
-        this.remover = await generateSubtitlesRemover();
-        this.show();
-      }
-    });
+
   }
 }

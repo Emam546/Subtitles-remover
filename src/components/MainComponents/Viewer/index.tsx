@@ -30,6 +30,7 @@ export default function VideoViewer({
   const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
   const [curDuration, setCurDuration] = useState(start);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
+  const [loading, setLoading] = useState(false);
   const [colorRange, setColorRange] = useState<ValueProps>({
     colorRange: {
       min: [210, 210, 210],
@@ -209,7 +210,23 @@ export default function VideoViewer({
     setCurDim({ ...curDim! });
   }
   return (
-    <div>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setLoading(true);
+        window.api
+          .invoke("processVideo", {
+            ...colorRange,
+            path,
+            roi: curDim,
+            startTime: start,
+            duration: end - start,
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      }}
+    >
       <div className="px-2">
         <div className="relative h-fit">
           <AdvancedReactPlayer
@@ -330,6 +347,18 @@ export default function VideoViewer({
           ref={kernelVideoRef}
         />
       </div>
-    </div>
+      <div className="py-2">
+        <button
+          type="submit"
+          className={`px-3 ml-auto py-3 text-white text-lg font-semibold rounded-lg transition-all duration-300 ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700"
+          } flex items-center justify-center`}
+        >
+          Process
+        </button>
+      </div>
+    </form>
   );
 }

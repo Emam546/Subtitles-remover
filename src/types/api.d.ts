@@ -12,6 +12,7 @@ import { getVideoData } from "@app/main/lib/main/lib/getVideoData";
 import { searchData } from "@app/main/lib/main/lib/search";
 import { SeekProps, SubtitlesRemover } from "@app/main/utils/SubtitlesRemover";
 import { MainWindow } from "@app/main/lib/main/window";
+import { processVideo } from "@app/main/lib/main/processVideo";
 import Ffmpeg from "fluent-ffmpeg";
 export interface NavigateVideo {
   video: {
@@ -47,6 +48,7 @@ export namespace ApiMain {
     insertVideo(
       ...props: Parameters<MainWindow["generate"]>
     ): Promise<Ffmpeg.FfprobeStream>;
+    processVideo: typeof processVideo;
   }
   interface HandleOnceMethods {}
 }
