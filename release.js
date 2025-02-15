@@ -1,7 +1,7 @@
 const publishRelease = require("publish-release");
 const path = require("path");
 const packageJson = require("./package.json");
-const files = ["youtube-downloader-setup-" + packageJson.version + "-win.exe"];
+const files = [packageJson.name + "-setup-" + packageJson.version + "-win.exe"];
 const fs = require("fs");
 const assets = files.map((file) => path.join("./dist", file));
 const options = {
