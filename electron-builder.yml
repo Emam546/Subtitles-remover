@@ -41,7 +41,7 @@ productName: subtitles-remover
 publish:
   - provider: github
     owner: Emam546
-    repo: subtitles-downloader
+    repo: subtitles-remover
     releaseType: release
 
 win:

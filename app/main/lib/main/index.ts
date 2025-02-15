@@ -26,8 +26,8 @@ export const createMainWindow = async (
     ...options,
     icon: "build/icon.ico",
     autoHideMenuBar: true,
-    resizable: false,
     show: false,
+  
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,

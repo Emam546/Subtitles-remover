@@ -18,7 +18,7 @@
     "lint:electron": "eslint -c app/.eslintrc.json --ext .ts app/main/",
     "dev": "next dev",
     "test": "jest",
-    "build-python": "poetry run pyinstaller --noconfirm --clean --optimize=2 --workpath  ./dist --distpath ./out --name python  python/__main__.py",
+    "build-python": "poetry run pyinstaller --strip --noconfirm --clean --optimize=2 --workpath  ./dist --distpath ./out --name python  python/__main__.py",
     "postinstall": "poetry install",
     "start": "electron-vite preview",
     "build:electron": "electron-vite build",
