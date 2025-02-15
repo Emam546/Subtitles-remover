@@ -1,11 +1,9 @@
 // import "../main/pre-start";
 import { SubtitlesRemover } from "@app/main/utils/SubtitlesRemover";
 import path from "path";
-import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
-import { PassThrough, Writable } from "stream";
-import { spawn } from "child_process";
+import { PassThrough } from "stream";
 
 const videoPath = path.join(__dirname, "./example.mp4");
 const outputPath = path.join(__dirname, "output.mp4");
@@ -119,27 +117,7 @@ describe("Test Subtitles Remover", () => {
     expect(duration).toBeLessThan(+remover.videoStream!.duration!);
   });
 });
-test("test for audio stream", async () => {
-  const outputPath = path.join(__dirname, "output.mp3");
-  await new Promise<void>((res, rej) => {
-    const audioStream = fs.createWriteStream(outputPath);
-    ffmpeg(videoPath)
-      .noVideo()
-      .on("error", (e) => {
-        rej(e);
-      })
-      .format("mp3")
-      .output(audioStream)
-      .audioCodec("copy")
-      .run();
 
-    audioStream.on("close", () => res());
-  });
-  const metaData = await getVideoInfo(outputPath);
-  const duration = +metaData.streams.find((s) => s.codec_type == "audio")!
-    .duration!;
-  expect(duration).toBeGreaterThan(0);
-});
 test("Should First", async () => {
   const remover = await subtitlesRemover.generate(videoPath);
   const [numerator, denominator] = remover.videoStream

@@ -18,10 +18,13 @@ export interface SeekProps {
   colorRange: { min: [number, number, number]; max: [number, number, number] };
   size: number;
 }
-const pythonPath =
+const pythonPath: [string, string[] | undefined] =
   app && app.isPackaged
-    ? path.join(path.dirname(app.getPath("exe")), "python")
-    : "python";
+    ? [
+        path.join(path.dirname(app.getPath("exe")), "python", "python.exe"),
+        undefined,
+      ]
+    : ["python", ["python"]];
 class FixedSizeChunkStream extends Transform {
   private buffer: Buffer = Buffer.alloc(0);
   private chunkSize: number;
@@ -171,7 +174,7 @@ export class SubtitlesRemover {
   }
   async initialize() {
     await new Promise<void>((res, rej) => {
-      this.pythonProcess = spawn("python", [pythonPath]).on("error", (e) => {
+      this.pythonProcess = spawn(...pythonPath).on("error", (e) => {
         console.error(e);
         rej(e);
       });

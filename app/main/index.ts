@@ -23,7 +23,7 @@ async function createWindow(args: string[]) {
   const data = lunchArgs(args);
   return await createMainWindow(
     {},
-    data ? { video: { link: data.youtubeLink } } : undefined
+    data ? { video: { link: data.Link } } : undefined
   );
 }
 app.whenReady().then(async () => {

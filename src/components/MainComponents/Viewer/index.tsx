@@ -77,7 +77,7 @@ export default function VideoViewer({
           roi: curDim,
           ...colorRange,
         });
-        const f = window.api.on("chunk", function G(_, chunk) {
+        const f: () => void = window.api.on("chunk", function G(_, chunk) {
           if (mediaSource.readyState != "open") return f();
           if (!videoBuffer.updating) {
             if (queueVideo.length > 0) {
@@ -88,7 +88,7 @@ export default function VideoViewer({
             } else videoBuffer.appendBuffer(chunk);
           } else queueVideo.push(chunk);
         });
-        const end = window.api.on("close", function G() {
+        const end: () => void = window.api.on("close", function G() {
           if (!videoBuffer.updating) {
             if (queueVideo.length > 0) {
               videoBuffer.appendBuffer(Buffer.concat([...queueVideo] as any));
@@ -103,17 +103,20 @@ export default function VideoViewer({
               { once: true }
             );
         });
-        const f3 = window.api.on("kernel-chunk", function G(_, chunk) {
-          if (!kernelVideoBuffer.updating) {
-            if (queueKernelVideo.length > 0) {
-              kernelVideoBuffer.appendBuffer(
-                Buffer.concat([...queueKernelVideo, chunk] as any)
-              );
-              queueKernelVideo = [];
-            } else kernelVideoBuffer.appendBuffer(chunk);
-          } else queueKernelVideo.push(chunk);
-        });
-        const end3 = window.api.on("kernel-close", function G() {
+        const f3: () => void = window.api.on(
+          "kernel-chunk",
+          function G(_, chunk) {
+            if (!kernelVideoBuffer.updating) {
+              if (queueKernelVideo.length > 0) {
+                kernelVideoBuffer.appendBuffer(
+                  Buffer.concat([...queueKernelVideo, chunk] as any)
+                );
+                queueKernelVideo = [];
+              } else kernelVideoBuffer.appendBuffer(chunk);
+            } else queueKernelVideo.push(chunk);
+          }
+        );
+        const end3: () => void = window.api.on("kernel-close", function G() {
           if (!kernelVideoBuffer.updating) {
             if (queueKernelVideo.length > 0) {
               kernelVideoBuffer.appendBuffer(
@@ -130,17 +133,20 @@ export default function VideoViewer({
               { once: true }
             );
         });
-        const f2 = window.api.on("audio-chunk", function G(_, chunk) {
-          if (!audioBuffer.updating) {
-            if (queueAudio.length > 0) {
-              audioBuffer.appendBuffer(
-                Buffer.concat([...queueAudio, chunk] as any)
-              );
-              queueAudio = [];
-            } else audioBuffer.appendBuffer(chunk);
-          } else queueAudio.push(chunk);
-        });
-        const end2 = window.api.on("audio-close", function G() {
+        const f2: () => void = window.api.on(
+          "audio-chunk",
+          function G(_, chunk) {
+            if (!audioBuffer.updating) {
+              if (queueAudio.length > 0) {
+                audioBuffer.appendBuffer(
+                  Buffer.concat([...queueAudio, chunk] as any)
+                );
+                queueAudio = [];
+              } else audioBuffer.appendBuffer(chunk);
+            } else queueAudio.push(chunk);
+          }
+        );
+        const end2: () => void = window.api.on("audio-close", function G() {
           if (!audioBuffer.updating) {
             if (queueAudio.length > 0) {
               audioBuffer.appendBuffer(Buffer.concat([...queueAudio] as any));

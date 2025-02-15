@@ -1,13 +1,13 @@
-export const matchLinkRegex = /^youtube-downloader:\/\//;
-export const youtubeLinkRegEx = /link="([^"]+)"/;
+export const matchLinkRegex = /^subtitles-downloader:\/\//;
+export const LinkRegEx = /link="([^"]+)"/;
 export function lunchArgs(data: string[]) {
   const encodedUrl = data.find((v) => v.match(matchLinkRegex));
   if (encodedUrl) {
     const url = decodeURIComponent(encodedUrl).replace(matchLinkRegex, "");
-    const youtubeLink = url.match(youtubeLinkRegEx);
+    const Link = url.match(LinkRegEx);
 
-    if (youtubeLink && youtubeLink[1]) {
-      return { youtubeLink: youtubeLink[1] };
+    if (Link && Link[1]) {
+      return { Link: Link[1] };
     }
   }
   return null;

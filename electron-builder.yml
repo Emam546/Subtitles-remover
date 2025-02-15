@@ -1,12 +1,12 @@
 ---
-appId: com.youtube-downloader.app
+appId: com.subtitles-remover.app
 appImage:
   artifactName: ${name}-${version}.${ext}
 asarUnpack:
   - resources/**
 extraFiles:
-  - from: "out/scripts"
-    to: "./scripts"
+  - from: "out/python"
+    to: "./python"
     filter:
       - "**/*"
   - from: "./screenshots"
@@ -37,11 +37,11 @@ mac:
   notarize: false
 npmRebuild: false
 
-productName: youtube-downloader
+productName: subtitles-remover
 publish:
   - provider: github
     owner: Emam546
-    repo: youtube-downloader
+    repo: subtitles-downloader
     releaseType: release
 
 win:

@@ -15,7 +15,7 @@ export default function SharedLayout({
   return (
     <>
       <Head>
-        <title>Youtube Downloader</title>
+        <title>Subtitles Downloader</title>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
