@@ -1,6 +1,6 @@
 {
   "name": "subtitles-remover",
-  "version": "1.1.7",
+  "version": "0.0.1",
   "main": "./out/main/index.js",
   "description": "A subtitles remover",
   "repository": "https://github.com/Emam546/subtitles-remover",
@@ -19,7 +19,6 @@
     "dev": "next dev",
     "test": "jest",
     "build-python": "poetry run pyinstaller --strip --noconfirm --clean --optimize=2 --workpath  ./dist --distpath ./out --name python  python/__main__.py",
-    "postinstall": "poetry install",
     "start": "electron-vite preview",
     "build:electron": "electron-vite build",
     "dev-electron": "electron-vite dev",
