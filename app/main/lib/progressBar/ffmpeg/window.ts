@@ -47,11 +47,12 @@ export class FfmpegWindow extends BaseDownloaderWindow {
     if (num > FfmpegWindow.MAX_TRIES) return this.error(err);
     try {
       const remover = await this.remover.generate(this.ffmpegData.path);
-      const numbOfFrames =
+      const numbOfFrames = Math.round(
         parseInt(remover.videoStream.nb_frames!) *
-        (this.ffmpegData.duration && remover.videoStream.duration
-          ? this.ffmpegData.duration / parseInt(remover.videoStream.duration)
-          : 1);
+          (this.ffmpegData.duration && remover.videoStream.duration
+            ? this.ffmpegData.duration / parseInt(remover.videoStream.duration)
+            : 1)
+      );
       this.setCurSize(0);
       this.changeState("connecting");
       this.setResumability(true);
