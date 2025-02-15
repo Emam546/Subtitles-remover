@@ -49,25 +49,34 @@ export default function VideoViewer({
     videoRef.current.src = url;
     let clear: Function;
 
+    videoRef.current?.addEventListener(
+      "loadedmetadata",
+      () => {
+        videoRef.current!.currentTime = 0;
+      },
+      { once: true }
+    );
+
     mediaSource.addEventListener("sourceopen", () => {
       const kernelMediaSource = new MediaSource();
-      const url = (kernelVideoRef.current!.src =
+      const kernelUrl = (kernelVideoRef.current!.src =
         URL.createObjectURL(kernelMediaSource));
-      kernelMediaSource.addEventListener("sourceopen", () => {
+      kernelMediaSource.addEventListener("sourceopen", async () => {
         if (mediaSource.readyState != "open") return;
         mediaSource.duration = duration - curDuration;
         const videoBuffer = mediaSource.addSourceBuffer(videoMimeType);
         const audioBuffer = mediaSource.addSourceBuffer("audio/mpeg");
         const kernelVideoBuffer =
           kernelMediaSource.addSourceBuffer(videoMimeType);
-        window.api.send("seek", {
+
+        let queueVideo: Buffer[] = [];
+        let queueKernelVideo: Buffer[] = [];
+        let queueAudio: Buffer[] = [];
+        await window.api.invoke("seek", {
           startTime: curDuration,
           roi: curDim,
           ...colorRange,
         });
-        let queueVideo: Buffer[] = [];
-        let queueKernelVideo: Buffer[] = [];
-        let queueAudio: Buffer[] = [];
         const f = window.api.on("chunk", function G(_, chunk) {
           if (mediaSource.readyState != "open") return f();
           if (!videoBuffer.updating) {
@@ -121,7 +130,6 @@ export default function VideoViewer({
               { once: true }
             );
         });
-
         const f2 = window.api.on("audio-chunk", function G(_, chunk) {
           if (!audioBuffer.updating) {
             if (queueAudio.length > 0) {
@@ -147,6 +155,7 @@ export default function VideoViewer({
               { once: true }
             );
         });
+
         clear = () => {
           f();
           end();
@@ -155,14 +164,15 @@ export default function VideoViewer({
           f3();
           end3();
           if (kernelVideoRef.current) kernelVideoRef.current.src = "";
-          URL.revokeObjectURL(url);
+          URL.revokeObjectURL(kernelUrl);
         };
       });
       clear = () => {
         if (kernelVideoRef.current) kernelVideoRef.current.src = "";
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(kernelUrl);
       };
     });
+
     mediaSource.addEventListener("sourceclose", () => {
       removeListeners();
     });
@@ -207,6 +217,7 @@ export default function VideoViewer({
     // } catch (error) {
     //   setCurDim({ ...curDim! });
     // }
+
     setCurDim({ ...curDim! });
   }
   return (
@@ -230,6 +241,7 @@ export default function VideoViewer({
       <div className="px-2">
         <div className="relative h-fit">
           <AdvancedReactPlayer
+            preload="metadata"
             id={path}
             aspect={aspect}
             height="100%"

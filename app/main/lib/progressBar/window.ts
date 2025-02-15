@@ -124,7 +124,7 @@ export class BaseDownloaderWindow extends DownloaderWindow {
   cancel() {
     if (fs.existsSync(this.fileStatus.path))
       fs.unlinkSync(this.fileStatus.path);
-    this.close();
+    if (!this.isDestroyed()) this.close();
   }
   setThrottleSpeed(speed: number) {
     this.downloadSpeed = speed;

@@ -28,6 +28,7 @@ export class MainWindow extends BrowserWindow {
     const fps = numerator / denominator;
     const videoWrite = new Writable({
       write: (chunk: Buffer, _, callback) => {
+        if (videoWrite.closed) return;
         this.webContents.send("chunk", chunk);
         callback(null);
       },
@@ -44,8 +45,8 @@ export class MainWindow extends BrowserWindow {
         callback(null);
       },
     });
-
-    const videoProcess = ffmpeg(reader.image)
+    const imageReader = reader.image();
+    const videoProcess = ffmpeg(imageReader)
       .inputOptions([
         "-y",
         "-f rawvideo",
@@ -63,7 +64,9 @@ export class MainWindow extends BrowserWindow {
         "-vcodec libx264",
         "-movflags faststart+separate_moof+empty_moov+default_base_moof",
       ]);
-    const kernelVideoProcess = ffmpeg(reader.kernel)
+    const kernelReader = reader.kernel();
+
+    const kernelVideoProcess = ffmpeg(kernelReader)
       .inputOptions([
         "-y",
         "-f rawvideo",
@@ -100,11 +103,11 @@ export class MainWindow extends BrowserWindow {
       audioProcess.kill("");
     });
     kernelVideoProcess.on("close", () => {
-      reader.kernel.destroy();
+      kernelReader.destroy();
       kernelVideoProcess.kill("");
     });
     videoWrite.on("close", () => {
-      reader.image.destroy();
+      imageReader.destroy();
       this.webContents.emit("close");
       videoProcess.kill("");
     });
@@ -137,6 +140,5 @@ export class MainWindow extends BrowserWindow {
       if (this.clearWriters) this.clearWriters();
       if (this.remover) this.remover.kill();
     });
-
   }
 }

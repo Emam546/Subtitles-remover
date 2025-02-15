@@ -11,6 +11,7 @@ import SpeedLimiter from "./pages/speed";
 import OptionsPage from "./pages/options";
 import { useAppSelector } from "./store";
 import { useFitWindow } from "@renderer/utils/hooks";
+import ImageViewer from "./components/imgViwer";
 
 function App(): JSX.Element {
   const tabs = useAppSelector((state) => state.page.tabs);
@@ -18,9 +19,11 @@ function App(): JSX.Element {
   const selectedState = tabs.find((tab) => tab.id == selected)!;
   const frameTitle = useRef<ComponentRef<"div">>(null);
   const ref = useFitWindow<ComponentRef<"div">>([frameTitle]);
-
+  const [showPreview, setShowPreview] = useState(false);
   return (
     <>
+      <Updater />
+
       <Frame ref={frameTitle}>
         <BaseButton
           onClick={() => {
@@ -45,8 +48,12 @@ function App(): JSX.Element {
           {selectedState.type == "Options" && <OptionsPage />}
         </main>
         <ProgressBar />
-        <Footer />
-        <Updater />
+        <Footer setPage={setShowPreview} showState={showPreview} />
+        {showPreview && (
+          <section className="my-3">
+            <ImageViewer />
+          </section>
+        )}
       </div>
     </>
   );

@@ -32,14 +32,8 @@ describe("Test Subtitles Remover", () => {
       },
       duration: 100000000,
     });
-    const video = readers.image;
-    readers.kernel.pipe(
-      new Writable({
-        write(chunk, encoding, callback) {
-          callback();
-        },
-      })
-    );
+    const video = readers.image();
+
     await new Promise<void>((res, rej) => {
       video.on("error", rej);
       video.on("close", res);
@@ -88,14 +82,8 @@ describe("Test Subtitles Remover", () => {
         height: 100,
       },
     });
-    const video = readers.image;
-    readers.kernel.pipe(
-      new Writable({
-        write(chunk, encoding, callback) {
-          callback();
-        },
-      })
-    );
+    const video = readers.image();
+
     await new Promise<void>((res, rej) => {
       const passThrough = new PassThrough();
       video.on("error", rej);
@@ -154,7 +142,6 @@ test("test for audio stream", async () => {
 });
 test("Should First", async () => {
   const remover = await subtitlesRemover.generate(videoPath);
-
   const [numerator, denominator] = remover.videoStream
     .r_frame_rate!.split("/")
     .map(Number);
@@ -174,17 +161,11 @@ test("Should First", async () => {
     },
   });
   await new Promise((res, rej) => {
-    reader.kernel.pipe(
-      new Writable({
-        write(chunk, encoding, callback) {
-          callback();
-        },
-      })
-    );
-    reader.image.on("error", rej);
+    const imageReader = reader.image();
+    imageReader.on("error", rej);
 
     ffmpeg()
-      .addInput(reader.image)
+      .addInput(imageReader)
       .inputOptions([
         "-y",
         "-f rawvideo",
@@ -197,9 +178,6 @@ test("Should First", async () => {
       .output(outputPath)
       .outputFormat("mp4")
       .outputOptions(["-vcodec libx264", "-c:a copy", "-map 0:v", "-map 1:a"])
-      .on("progress", (percent) => {
-        const curSize = percent.targetSize * 1024;
-      })
       .on("error", rej)
       .on("end", res)
       .run();

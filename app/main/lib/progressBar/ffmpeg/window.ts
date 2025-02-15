@@ -35,6 +35,12 @@ export class FfmpegWindow extends BaseDownloaderWindow {
   async initialize() {
     this.remover = await generateSubtitlesRemover();
   }
+  cancel(): void {
+    this.close();
+    this.on("closed", () => {
+      super.cancel();
+    });
+  }
   async download(num = 0, err?: unknown) {
     if (!this.remover)
       throw new Error("The download function executed too early");
@@ -51,16 +57,20 @@ export class FfmpegWindow extends BaseDownloaderWindow {
         .r_frame_rate!.split("/")
         .map(Number);
       const fps = numerator / denominator;
-      reader.kernel.pipe(
+      const videoReader = reader.image();
+      const jpgWriter = reader.jpg().pipe(
         new Writable({
-          write(chunk, encoding, callback) {
+          write: (chunk: Buffer, encoding, callback) => {
+            this.webContents.send("chunk", chunk.toString());
             callback();
           },
         })
       );
-      reader.image.on("error", this.error);
+
+      videoReader.on("error", this.error);
+
       const commando = ffmpeg()
-        .input(reader.image)
+        .input(videoReader)
         .inputOptions([
           "-y",
           "-f rawvideo",
@@ -102,8 +112,8 @@ export class FfmpegWindow extends BaseDownloaderWindow {
         .on("end", () => this.end());
 
       this.on("close", () => {
-        reader.image.destroy();
-        reader.kernel.destroy();
+        videoReader.destroy();
+        jpgWriter.destroy();
         commando.kill("");
       });
       commando.run();

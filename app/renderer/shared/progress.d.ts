@@ -55,6 +55,7 @@ export namespace ApiRender {
     onResumeCapacity(status: boolean): void;
     onEnd(): void;
     onSetPageData(data: ProgressData): void;
+    chunk(data: string): void;
   }
   interface OnceMethods {}
 }

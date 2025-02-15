@@ -50,10 +50,7 @@ class FixedSizeChunkStream extends Transform {
     callback();
   }
 }
-interface TransformDataType {
-  image: Buffer;
-  kernel: Buffer;
-}
+
 export class SubtitlesRemover {
   pythonProcess?: ChildProcessWithoutNullStreams;
   async generate(videoPath: string) {
@@ -77,8 +74,9 @@ export class SubtitlesRemover {
         duration,
         size,
       }: SeekProps): {
-        image: Readable;
-        kernel: Readable;
+        image: () => Readable;
+        jpg: () => Readable;
+        kernel: () => Readable;
       } => {
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
@@ -132,32 +130,41 @@ export class SubtitlesRemover {
         });
 
         return {
-          image: transform.pipe(
-            new PassThrough({
-              transform(chunk: string, _, callback) {
-                try {
+          image: () =>
+            transform.pipe(
+              new PassThrough({
+                transform(chunk: string, _, callback) {
                   const res = JSON.parse(chunk) as {
                     image: string;
                     kernel: string;
                   };
                   callback(null, Buffer.from(res.image, "base64"));
-                } catch (error) {
-                  console.error(error);
-                }
-              },
-            })
-          ),
-          kernel: transform.pipe(
-            new PassThrough({
-              transform(chunk: string, _, callback) {
-                const res = JSON.parse(chunk) as {
-                  image: string;
-                  kernel: string;
-                };
-                callback(null, Buffer.from(res.kernel, "base64"));
-              },
-            })
-          ),
+                },
+              })
+            ),
+          jpg: () =>
+            transform.pipe(
+              new PassThrough({
+                transform(chunk: string, _, callback) {
+                  const res = JSON.parse(chunk) as {
+                    jpg: string;
+                  };
+                  callback(null, res.jpg);
+                },
+              })
+            ),
+          kernel: () =>
+            transform.pipe(
+              new PassThrough({
+                transform(chunk: string, _, callback) {
+                  const res = JSON.parse(chunk) as {
+                    image: string;
+                    kernel: string;
+                  };
+                  callback(null, Buffer.from(res.kernel, "base64"));
+                },
+              })
+            ),
         };
       },
     };

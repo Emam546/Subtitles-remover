@@ -1,5 +1,9 @@
 import "./ipc";
-import { BrowserWindowConstructorOptions, globalShortcut, shell } from "electron";
+import {
+  BrowserWindowConstructorOptions,
+  globalShortcut,
+  shell,
+} from "electron";
 import path from "path";
 import { Context, ProgressBarState } from "@shared/renderer/progress";
 import { convertFunc } from "@utils/app";

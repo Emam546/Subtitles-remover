@@ -11,7 +11,7 @@ export async function processVideo(process: FfmpegVideoData) {
     clipped:
       process.startTime != 0 ||
       (process.duration != undefined && process.duration < duration - 3),
-    title: path.basename(process.path).split(".")[0],
+    title: path.basename(process.path).split(".").slice(0, -1).join("."),
     formate: path.extname(process.path),
     start: process.startTime,
     end: process.startTime + (process.duration || duration),

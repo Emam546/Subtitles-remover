@@ -26,10 +26,10 @@ export function removeUnwantedChars(val: string) {
 export function getFileName<T extends VideoDataClippedType>(data: T) {
   if (data.clipped) {
     return removeUnwantedChars(
-      `YoutubeDownloader - ${data.title} ${data.start}:${data.end}.${data.formate}`
+      `Subtitles remover - ${data.title} ${data.start}:${data.end}.${data.formate}`
     );
   } else
     return removeUnwantedChars(
-      `YoutubeDownloader - ${data.title}.${data.formate}`
+      `Subtitles remover - ${data.title}.${data.formate}`
     );
 }

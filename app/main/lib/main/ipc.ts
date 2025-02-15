@@ -25,18 +25,13 @@ type HandelOnceMethodsType = {
     ApiMain.HandleOnceMethods[K]
   >;
 };
-export const OnMethods: OnMethodsType = {
+export const OnMethods: OnMethodsType = {};
+export const OnceMethods: OnceMethodsType = {};
+export const HandleMethods: HandelMethodsType = {
   seek(e, props) {
     const window = MainWindow.fromWebContents(e.sender)!;
     window.seek(props);
   },
-  finished(e, value) {
-    const window = MainWindow.fromWebContents(e.sender)!;
-    window.emit("wrote", value);
-  },
-};
-export const OnceMethods: OnceMethodsType = {};
-export const HandleMethods: HandelMethodsType = {
   Download(_, ...args) {
     return DownloadFileToDesktop(...args);
   },
@@ -50,9 +45,9 @@ export const HandleMethods: HandelMethodsType = {
   },
 };
 export const HandleOnceMethods: HandelOnceMethodsType = {};
-ObjectEntries(OnMethods).forEach(([key, val]) => {
-  ipcMain.on(key, val);
-});
+// ObjectEntries(OnMethods).forEach(([key, val]) => {
+//   ipcMain.on(key, val);
+// });
 ObjectEntries(HandleMethods).forEach(([key, val]) => {
   ipcMain.handle(key, val);
 });

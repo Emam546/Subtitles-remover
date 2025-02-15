@@ -63,6 +63,7 @@ def main():
             # Encode and output result
             sys.stdout.write(json.dumps({
                 "image":  base64.b64encode(processed_image.tobytes()).decode('utf-8'),
+                "jpg": base64.b64encode(cv2.imencode(".jpg", processed_image)[1]).decode("utf-8"),
                 "kernel": base64.b64encode(kernel.tobytes()).decode('utf-8')
             }))
 

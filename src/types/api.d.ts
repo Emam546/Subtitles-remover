@@ -38,12 +38,11 @@ export namespace ApiRender {
   interface OnceMethods {}
 }
 export namespace ApiMain {
-  interface OnMethods {
-    seek(props: SeekProps): void;
-    finished(state: boolean): void;
-  }
+  interface OnMethods {}
   interface OnceMethods {}
   interface HandleMethods {
+    seek(props: SeekProps): void;
+
     Download: typeof DownloadFileToDesktop;
     insertVideo(
       ...props: Parameters<MainWindow["generate"]>
