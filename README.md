@@ -1,48 +1,41 @@
-# Youtube downloader
+# Hardcoded Subtitles Remover
+## Overview
 
-The Y2Mate clone website is a project developed using Next.js, Express.js, Tailwind CSS, Bootstrap, and Node.js. It aims to replicate the functionality of the popular Y2Mate website, which allows users to download videos from various online platforms. By leveraging Next.js for server-side rendering and combining it with Express.js and Node.js for backend functionality, the website offers a seamless video downloading experience.
+This is a Windows application designed to remove hardcoded subtitles from videos. The program allows users to select the area where subtitles appear and specify a color range to be removed. It then generates a mask and inpaints the frames, allowing users to see the results simultaneously.
 
 ![Screenshot](screenshots/1.png)
 ![Screenshot](screenshots/2.png)
-## Live Demo
-You can access the live demo [here](https://youtube-playlists.onrender.com/).
 
-## Description
+## Purpose
 
-The Y2Mate clone website provides users with the ability to download videos from platforms such as YouTube, Vimeo, and more. It offers an intuitive and user-friendly interface, similar to the original Y2Mate website, making it easy for users to navigate and download their desired videos.
+This program is particularly useful for students and language learners who already understand some of a movie's language but find subtitles distracting. By removing the subtitles, learners can focus more on the spoken dialogue, making it easier to improve their listening and comprehension skills. This tool allows them to have another version of the movie without subtitles.
+
+## Technologies Used
+
+- **Frontend & Backend:** Node.js, Next.js, Electron, TailwindCSS
+- **Subtitle Removal:** Implemented using Python and OpenCV
+
 
 ## Features
 
-- Video Downloading: Users can input the URL of the video they want to download and select the desired format and quality. The website then processes the request and provides the download link.
+-   Cut specific portions of the video as needed.
+    
+-   Select the subtitle area manually.
+    
+-   Define the color range for subtitle removal.
+    
+-   Generate a mask and apply inpainting to reconstruct the frames.
+    
+-   Real-time preview of the processed frames.
 
-- Multiple Platform Support: The website supports video downloads from popular platforms like YouTube, Vimeo, and others, allowing users to access a wide range of online content.
+## Known Issues
 
-- Server-Side Rendering: Next.js is used for server-side rendering, ensuring fast loading times and optimal performance. This results in a smooth and efficient user experience.
+This application is still under development, and there are some issues that need to be resolved:
 
-- Express.js Backend: Express.js, combined with Node.js, powers the backend functionality of the website. It handles the video processing and download requests, providing a reliable and scalable server environment.
+- **Performance Issues with Large Videos:** If the video is too large, the application may struggle to display it properly, though processing remains functional.
+- **Startup Delay:** The application may take some time before it starts displaying the video, and in some cases, it might fail to show the video.
+- **Seeking Issues:** There may be problems displaying the previous frame when seeking backward in the video.
 
-- Responsive Design: The website is designed to be responsive, adapting to different screen sizes and devices. Users can access and use the Y2Mate clone website seamlessly on desktops, tablets, and mobile devices.
+## Contribution
 
-- Styling with Tailwind CSS and Bootstrap: Tailwind CSS and Bootstrap are used for styling and layout purposes, offering a visually appealing and responsive interface. These frameworks provide a wide range of pre-designed components and utilities, making the development process more efficient.
-
-## Getting Started
-
-To run the project locally, follow these steps:
-
-1. Clone the repository:
-
-   ```shell
-   git clone https://github.com/Emam546/youtube-playlist-server
-   ```
-2. Install the dependencies:
-
-   ```shell
-   npm install
-   ```
-
-3. Start the development server:
-
-    ```shell
-   npm dev
-   ```
-****
+This project is still a work in progress, and I welcome any contributions to help improve its functionality and performance. If you're interested in contributing, feel free to submit issues, feature requests, or pull requests.
