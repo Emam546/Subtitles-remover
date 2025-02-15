@@ -9,7 +9,7 @@
     "owner": "Emam546",
     "provider": "github",
     "releaseType": "release",
-    "repo": "subtitles-remover"
+    "repo": "Subtitles-remover"
   },
   "scripts": {
     "build:next": "next build",
