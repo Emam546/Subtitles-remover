@@ -9,10 +9,14 @@ extraFiles:
     to: "./python"
     filter:
       - "**/*"
+  - from: "build"
+    to: "./build"
+    filter:
+      - "**/*"
   - from: "./screenshots"
     to: "./screenshots"
     filter:
-      - "**/*"
+      - "**/icon.*"
 directories:
   buildResources: build
   output: dist
