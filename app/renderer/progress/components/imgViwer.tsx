@@ -11,7 +11,7 @@ export default function ImageViewer() {
 
   return (
     <div>
-      <img className="w-full min-h-full" ref={ref} alt="" />
+      <img className="w-full max-w-fit min-h-full max-h-[30rem] mx-auto" ref={ref} />
     </div>
   );
 }

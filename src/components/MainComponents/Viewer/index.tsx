@@ -63,7 +63,7 @@ export default function VideoViewer({
         URL.createObjectURL(kernelMediaSource));
       kernelMediaSource.addEventListener("sourceopen", async () => {
         if (mediaSource.readyState != "open") return;
-        mediaSource.duration = duration - curDuration;
+        mediaSource.duration = Math.max(0, duration - curDuration);
         const videoBuffer = mediaSource.addSourceBuffer(videoMimeType);
         const audioBuffer = mediaSource.addSourceBuffer("audio/mpeg");
         const kernelVideoBuffer =
