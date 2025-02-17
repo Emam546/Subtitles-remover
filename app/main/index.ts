@@ -21,10 +21,7 @@ if (!app.isPackaged) {
 }
 async function createWindow(args: string[]) {
   const data = lunchArgs(args);
-  return await createMainWindow(
-    {},
-    data ? { video: { link: data.Link } } : undefined
-  );
+  return await createMainWindow({}, data ? { videoPath: data } : undefined);
 }
 app.whenReady().then(async () => {
   await createWindow(process.argv);
@@ -41,10 +38,10 @@ else
     if (MainWindow.Window) {
       if (MainWindow.Window.isMinimized()) MainWindow.Window.restore();
       MainWindow.Window.focus();
-      if (argv.length >= 2) {
+      console.log(argv);
+      if (process.platform.startsWith("win") && argv.length >= 2) {
         const data = lunchArgs(argv);
-        // if (data)
-        //   MainWindow.Window.webContents.send("getYoutubeUrl", data.youtubeLink);
+        if (data) MainWindow.Window.webContents.send("open-file", data);
       }
     } else if (!autoUpdater.hasUpdate) createWindow(argv);
   });

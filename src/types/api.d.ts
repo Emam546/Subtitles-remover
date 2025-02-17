@@ -6,16 +6,9 @@ import { MainWindow } from "@app/main/lib/main/window";
 import { processVideo } from "@app/main/lib/main/processVideo";
 import Ffmpeg from "fluent-ffmpeg";
 export interface NavigateVideo {
-  video: {
-    link: string;
-  };
+  videoPath: string;
 }
-export interface NavigateSearch {
-  video: {
-    link: string;
-  };
-}
-export type Context = NavigateVideo | NavigateSearch | null;
+export type Context = NavigateVideo | null;
 export namespace ApiRender {
   interface OnMethods {
     chunk: (data: Buffer) => void;
@@ -24,6 +17,7 @@ export namespace ApiRender {
     "audio-close": (data: Buffer) => void;
     "kernel-close": (data: Buffer) => void;
     "kernel-chunk": (data: Buffer) => void;
+    "open-file": (data: string) => void;
     error: (e: Error) => void;
   }
   interface OnceMethods {}

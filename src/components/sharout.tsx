@@ -1,9 +1,10 @@
 import { UserProvider } from "@src/context/info";
 import Header from "./header";
 import Footer from "./footer";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import Head from "next/head";
 import InputHolder from "./input_componnent";
+import { useRouter } from "next/router";
 
 export default function SharedLayout({
   children,
@@ -12,6 +13,21 @@ export default function SharedLayout({
   children: ReactNode;
   components?: ReactNode;
 }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (window.context) {
+      router.push({
+        pathname: router.pathname,
+        query: { path: window.context.videoPath },
+      });
+    }
+    return window.api.on("open-file", (e, path) => {
+      router.push({
+        pathname: router.pathname,
+        query: { path: path },
+      });
+    });
+  }, []);
   return (
     <>
       <Head>

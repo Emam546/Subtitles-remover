@@ -123,7 +123,7 @@ export class MainWindow extends BrowserWindow {
   }
   async generate(...params: Parameters<SubtitlesRemover["generate"]>) {
     if (this.clearWriters) this.clearWriters();
-    if (!this.remover) throw new Error("unrecognized video path");
+    if (!this.remover) throw new Error("unrecognized remover path");
     this.reader = await this.remover.generate(...params);
     return this.reader;
   }

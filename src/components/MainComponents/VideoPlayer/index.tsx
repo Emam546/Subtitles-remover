@@ -27,7 +27,9 @@ export default function VideoClipper() {
     videoStream: Ffmpeg.FfprobeStream;
     path: string;
   }>();
+
   useEffect(() => {
+    window.api.send("log", path);
     if (!path) return;
     if (data?.path == path) return;
     const controller = new AbortController();
@@ -48,7 +50,12 @@ export default function VideoClipper() {
     };
   }, [path]);
   if (!path) return null;
-  if (err) return <>{JSON.stringify(err)}</>;
+  if (err)
+    return (
+      <>
+        <>{JSON.stringify(err)}</>
+      </>
+    );
   if (!data || data.path != path) return <Loading />;
   const duration = data.duration;
   const [start, end] = [

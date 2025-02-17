@@ -62,6 +62,11 @@ Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: s
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 Root: HKA; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes"; ValueType: string; ValueName: ".myp"; ValueData: ""
 
+; Associate with .mp4 files
+Root: HKCR; Subkey: ".mp4"; ValueType: string; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: ".avi"; ValueType: string; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: ".mkv"; ValueType: string; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletevalue
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon

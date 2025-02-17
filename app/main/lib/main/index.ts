@@ -27,7 +27,7 @@ export const createMainWindow = async (
     icon: "build/icon.ico",
     autoHideMenuBar: true,
     show: false,
-  
+
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,
@@ -41,11 +41,11 @@ export const createMainWindow = async (
       ],
     },
   });
-
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
+  await win.initialize();
   if (isProd && appServe) {
     await appServe(win);
   } else if (isDev) {
@@ -62,7 +62,6 @@ export const createMainWindow = async (
       }
     });
   } else throw new Error("Unrecognized environment");
-  await win.initialize();
   win.show();
   win.maximize();
   return win;
