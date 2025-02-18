@@ -245,7 +245,7 @@ export default function VideoViewer({
       }}
     >
       <div className="px-2">
-        <div className="relative h-fit">
+        <div className="relative">
           <AdvancedReactPlayer
             preload="metadata"
             id={path}
