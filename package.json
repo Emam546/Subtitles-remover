@@ -1,6 +1,6 @@
 {
   "name": "subtitles-remover",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "./out/main/index.js",
   "description": "A subtitles remover",
   "repository": "https://github.com/Emam546/subtitles-remover",
