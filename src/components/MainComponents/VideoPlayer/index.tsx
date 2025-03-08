@@ -29,7 +29,6 @@ export default function VideoClipper() {
   }>();
 
   useEffect(() => {
-    window.api.send("log", path);
     if (!path) return;
     if (data?.path == path) return;
     const controller = new AbortController();

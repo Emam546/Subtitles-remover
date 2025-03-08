@@ -10,15 +10,15 @@ export class MainWindow extends BrowserWindow {
   public static Window: BrowserWindow | null = null;
   remover?: SubtitlesRemover;
   reader?: Awaited<ReturnType<SubtitlesRemover["generate"]>>;
-  clearWriters?: Function;
+  clearWriters?: () => Promise<void>;
   public static fromWebContents(
     webContents: Electron.WebContents
   ): MainWindow | null {
     return BrowserWindow.fromWebContents(webContents) as MainWindow;
   }
 
-  seek(props: SeekProps) {
-    if (this.clearWriters) this.clearWriters();
+  async seek(props: SeekProps) {
+    if (this.clearWriters) await this.clearWriters();
     if (!this.reader) throw new Error("unrecognized video path");
     const videoStream = this.reader.videoStream;
     const reader = this.reader.seek(props);
@@ -114,15 +114,18 @@ export class MainWindow extends BrowserWindow {
     audioProcess.run();
     videoProcess.run();
     kernelVideoProcess.run();
-    this.clearWriters = () => {
+    this.clearWriters = async () => {
       if (!videoWrite.closed) videoWrite.destroy();
       if (!audioWriter.closed) audioWriter.destroy();
       if (!kernelVideoWrite.closed) kernelVideoWrite.destroy();
+      return await new Promise((res) => {
+        setTimeout(res, 100);
+      });
     };
     return videoWrite;
   }
   async generate(...params: Parameters<SubtitlesRemover["generate"]>) {
-    if (this.clearWriters) this.clearWriters();
+    if (this.clearWriters) await this.clearWriters();
     if (!this.remover) throw new Error("unrecognized remover path");
     this.reader = await this.remover.generate(...params);
     return this.reader;
@@ -135,9 +138,9 @@ export class MainWindow extends BrowserWindow {
     if (!MainWindow.Window) {
       MainWindow.Window = this;
     }
-    this.on("close", () => {
+    this.on("close", async () => {
       if (this.id == MainWindow.Window?.id) MainWindow.Window = null;
-      if (this.clearWriters) this.clearWriters();
+      if (this.clearWriters) await this.clearWriters();
       if (this.remover) this.remover.kill();
     });
   }

@@ -90,6 +90,7 @@ export class SubtitlesRemover {
               process!.stdout.removeAllListeners("data");
               callback(null, data.toString());
             });
+            if (this.pythonProcess.killed) return;
             this.pythonProcess.stdin.write(
               JSON.stringify({
                 image: chunk.toString("base64"),
@@ -98,10 +99,7 @@ export class SubtitlesRemover {
                 size,
                 width,
                 height,
-              }) + "\n",
-              (err) => {
-                if (err) callback(err);
-              }
+              }) + "\n"
             );
           },
         });

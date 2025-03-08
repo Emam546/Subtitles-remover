@@ -28,9 +28,9 @@ type HandelOnceMethodsType = {
 export const OnMethods: OnMethodsType = {};
 export const OnceMethods: OnceMethodsType = {};
 export const HandleMethods: HandelMethodsType = {
-  seek(e, props) {
+  async seek(e, props) {
     const window = MainWindow.fromWebContents(e.sender)!;
-    window.seek(props);
+    await window.seek(props);
   },
   Download(_, ...args) {
     return DownloadFileToDesktop(...args);
