@@ -48,7 +48,7 @@ export class FfmpegWindow extends BaseDownloaderWindow {
     try {
       const remover = await this.remover.generate(this.ffmpegData.path);
       const numbOfFrames = Math.round(
-        parseInt(remover.videoStream.nb_frames!) *
+        parseInt(remover.videoStream.nb_frames || "") *
           (this.ffmpegData.duration && remover.videoStream.duration
             ? this.ffmpegData.duration / parseInt(remover.videoStream.duration)
             : 1)
@@ -103,7 +103,7 @@ export class FfmpegWindow extends BaseDownloaderWindow {
               (targetSize / progress.percent) * 100
             );
             this.setFileSize(totalFileSize);
-          } else {
+          } else if (numbOfFrames) {
             const totalFileSize = Math.round(
               (numbOfFrames / progress.frames) * targetSize
             );
