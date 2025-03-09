@@ -7,7 +7,7 @@ export default function VideoUploader() {
 
   return (
     <div>
-      <div className="w-full p-6 bg-gray-200 shadow-lg rounded-2xl">
+      <div className="p-6 mx-auto bg-gray-200 shadow-lg w-fit rounded-2xl">
         <label className="flex flex-col items-center justify-center w-full p-10 transition border-2 border-gray-500 border-dashed cursor-pointer rounded-xl hover:bg-gray-300">
           <UploadCloud size={48} className="mb-4 text-gray-600" />
           <span className="text-lg font-medium text-gray-700">

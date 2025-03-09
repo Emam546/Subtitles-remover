@@ -90,7 +90,7 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     );
     return (
       <div
-        className={classNames("relative bg-black/90 min-w-full", {
+        className={classNames("relative bg-black/90 w-full", {
           "aspect-video": aspect == "16:9",
           "aspect-[4/3]": aspect == "4:3",
         })}

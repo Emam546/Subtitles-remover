@@ -55,7 +55,12 @@ export default function VideoClipper() {
         <>{JSON.stringify(err)}</>
       </>
     );
-  if (!data || data.path != path) return <Loading />;
+  if (!data || data.path != path)
+    return (
+      <div className="mx-auto w-fit">
+        <Loading />
+      </div>
+    );
   const duration = data.duration;
   const [start, end] = [
     getTime(query.start, 0, duration),

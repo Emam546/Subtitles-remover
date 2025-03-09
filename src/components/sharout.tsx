@@ -38,7 +38,7 @@ export default function SharedLayout({
       <UserProvider>
         <div className="flex flex-col items-center justify-between min-h-screen text-black bg-white">
           <Header />
-          <main className="flex flex-col items-center w-full max-w-5xl p-6">
+          <main className="w-full max-w-5xl p-6">
             <section className="w-full mb-6 text-center">
               <h2 className="text-2xl font-semibold">
                 Upload and Preview Your Video
@@ -49,6 +49,7 @@ export default function SharedLayout({
             </section>
             <InputHolder />
             <section className="my-4">{components}</section>
+            
             {children}
           </main>
 
