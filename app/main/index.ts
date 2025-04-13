@@ -7,6 +7,7 @@ import { electronApp } from "@electron-toolkit/utils";
 import { lunchArgs } from "./helpers/launchHelpers";
 import path from "path";
 import { MainWindow } from "./lib/main/window";
+import { fileHandler } from "./helpers/manageVideo";
 
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
@@ -21,6 +22,7 @@ if (!app.isPackaged) {
 }
 async function createWindow(args: string[]) {
   const data = lunchArgs(args);
+  await fileHandler();
   return await createMainWindow({}, data ? { videoPath: data } : undefined);
 }
 app.whenReady().then(async () => {
