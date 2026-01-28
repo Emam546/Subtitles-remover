@@ -1,6 +1,6 @@
 {
   "name": "subtitles-remover",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "./out/main/index.js",
   "description": "A subtitles remover",
   "repository": "https://github.com/Emam546/subtitles-remover",
@@ -24,8 +24,7 @@
     "dev-electron": "electron-vite dev",
     "dev:desk": "concurrently -n \"NEXT,ELECTRON\" -c \"yellow,blue\" --kill-others \"next dev\" \"npm run dev-electron\"",
     "build": "npm run build:next&&next export -o ./out/renderer && npm run build:electron",
-    "build:win": "npm run build-python&&electron-builder --win -p never",
-    "build:inno": "innosetup-compiler setup.iss --verbose",
+    "build:win": "npm run build-python&&electron-builder --win -p never&&innosetup-compiler setup.iss --verbose",
     "publish": "node release.js",
     "pack": "npm run build&&npm run build:win"
   },

@@ -31,7 +31,5 @@ jobs:
         run: pip install poetry&&poetry install
       - name: packing
         run: npm run pack
-      - name: packaging inno
-        run: npm run build:inno
       - name: publish
         run: npm run publish
