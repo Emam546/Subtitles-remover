@@ -7,6 +7,7 @@ import ffmpeg from "fluent-ffmpeg";
 import qs from "qs";
 import { protocol, net, app } from "electron";
 const videoProtocolName = "video";
+const fileProtocol = "filo";
 protocol.registerSchemesAsPrivileged([
   {
     scheme: videoProtocolName,
@@ -18,6 +19,13 @@ protocol.registerSchemesAsPrivileged([
       secure: true,
       supportFetchAPI: true,
       corsEnabled: true,
+    },
+  },
+  {
+    scheme: fileProtocol,
+    privileges: {
+      bypassCSP: true,
+      stream: true,
     },
   },
 ]);
@@ -73,7 +81,7 @@ export async function fileHandler() {
   app.on("before-quit", async () => {
     remover.kill();
   });
-  protocol.handle(videoProtocolName, async (req) => {
+  protocol.registerStreamProtocol(videoProtocolName, async (req, callback) => {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);
     const reader = await remover.generate(filePath);
@@ -112,17 +120,72 @@ export async function fileHandler() {
       videoProcess.kill("");
     });
     videoProcess.run();
-    // this.clearWriters = async () => {
-    //   if (!videoWrite.closed) videoWrite.destroy();
-    //   return await new Promise((res) => {
-    //     setTimeout(res, 100);
-    //   });
-    // };
-
-    return new Response(ReadableToWebStream(videoWrite), {
+    callback({
+      statusCode: 200,
       headers: {
         "Content-Type": "video/mp4",
       },
+      data: videoWrite,
     });
   });
+  protocol.registerFileProtocol(fileProtocol, async (req, callback) => {
+    const url = new URL(req.url);
+    const filePath = decodeURI(url.pathname.split("/")[1]);
+    console.log(filePath);
+    callback({
+      path: filePath,
+    });
+  });
+  // protocol.handle(videoProtocolName, async (req) => {
+  //   const url = new URL(req.url);
+  //   const filePath = decodeURI(url.pathname.split("/")[1]);
+  //   const reader = await remover.generate(filePath);
+  //   // if (this.clearWriters) await this.clearWriters();
+  //   const videoStream = reader.videoStream;
+  //   const props = queryToProps(url.search.slice(1));
+  //   const readerVideo = reader.seek(props);
+  //   const [numerator, denominator] = videoStream
+  //     .r_frame_rate!.split("/")
+  //     .map(Number);
+  //   const fps = numerator / denominator;
+  //   const videoWrite = new PassThrough({});
+  //   const imageReader = readerVideo.image();
+  //   const videoProcess = ffmpeg(imageReader)
+  //     .inputOptions([
+  //       "-y",
+  //       "-f rawvideo",
+  //       `-r ${fps}`,
+  //       "-vcodec rawvideo",
+  //       "-pix_fmt bgr24",
+  //       `-s ${videoStream!.width}:${videoStream!.height}`,
+  //     ])
+  //     .output(videoWrite)
+  //     .outputFormat("mp4")
+  //     .on("error", (e) => {
+  //       console.error(e);
+  //       if (!videoWrite.closed) videoWrite.emit("error", e);
+  //     })
+  //     .outputOptions([
+  //       "-vcodec libx264",
+  //       "-movflags faststart+separate_moof+empty_moov+default_base_moof",
+  //     ]);
+  //   videoWrite.on("close", () => {
+  //     // imageReader.destroy();
+  //     // this.webContents.emit("close");
+  //     videoProcess.kill("");
+  //   });
+  //   videoProcess.run();
+  //   // this.clearWriters = async () => {
+  //   //   if (!videoWrite.closed) videoWrite.destroy();
+  //   //   return await new Promise((res) => {
+  //   //     setTimeout(res, 100);
+  //   //   });
+  //   // };
+
+  //   return new Response(ReadableToWebStream(videoWrite), {
+  //     headers: {
+  //       "Content-Type": "video/mp4",
+  //     },
+  //   });
+  // });
 }

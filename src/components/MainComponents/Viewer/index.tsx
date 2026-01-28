@@ -14,8 +14,9 @@ export interface Props {
   path: string;
   defaultBox: Dimensions;
 }
-const videoMimeType =
-  'video/mp4; codecs="avc1.f4000c"; profiles="isom,iso2,avc1,iso6,mp41"';
+function isVideoPlaying(video: HTMLVideoElement) {
+  return !!(!video.paused && !video.ended && video.readyState >= 2);
+}
 export default function VideoViewer({
   path,
   duration,
@@ -26,6 +27,7 @@ export default function VideoViewer({
 }: Props) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const kernelVideoRef = useRef<HTMLVideoElement>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
@@ -42,6 +44,7 @@ export default function VideoViewer({
   });
 
   // Replace backslashes with forward slashes
+  const audioUrl = `filo:///${encodeURI(path)}`;
   const url = useMemo(() => {
     return `video://video/${encodeURI(path)}?${qs.stringify({
       startTime: curDuration,
@@ -61,6 +64,50 @@ export default function VideoViewer({
     });
   }, [videoRef.current]);
   useEffect(() => {
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (!video || !audio) return;
+    const onWaiting = () => {
+      // video buffering → pause audio
+      audio.pause();
+    };
+
+    const onPlaying = () => {
+      // video resumed → resume audio
+      audio.play();
+    };
+
+    video.addEventListener("play", onPlaying);
+    video.addEventListener("pause", onWaiting);
+    video.addEventListener("loadstart", onWaiting);
+
+    const seeking = () => {
+      const orgTime = video.currentTime + mediaDuration;
+      if (Math.abs(orgTime - audio.currentTime) > 0.3) {
+        audio.currentTime = orgTime;
+      }
+    };
+    audio.addEventListener("timeupdate", () => {
+      if (isVideoPlaying(video)) audio.play();
+      else audio.pause();
+    });
+    video.addEventListener("canplaythrough", seeking);
+    video.addEventListener("timeupdate", seeking);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("stalled", onWaiting);
+    audioRef.current!.currentTime = mediaDuration;
+    return () => {
+      video.removeEventListener("play", onPlaying);
+      video.removeEventListener("pause", onWaiting);
+      video.removeEventListener("canplaythrough", seeking);
+
+      video.removeEventListener("timeupdate", seeking);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("stalled", onWaiting);
+      video.removeEventListener("playing", onPlaying);
+    };
+  }, [audioRef, videoRef, mediaDuration]);
+  useEffect(() => {
     window.api.on("error", (_, e) => {
       // eslint-disable-next-line no-console
       console.error(e);
@@ -79,20 +126,6 @@ export default function VideoViewer({
   }, [playing, videoRef.current]);
 
   function handelSeek(readDuration: number) {
-    // if (!ref.current) return;
-    // const player = ref.current;
-    // const VideoTime = readDuration - mediaDuration;
-    // if (VideoTime < 0) return setCurDim({ ...curDim! });
-    // try {
-    //   const endVal = player.buffered.end(player.buffered.length - 1);
-    //   if (VideoTime > endVal) {
-    //     setCurDim({ ...curDim! });
-    //   } else player.currentTime = start - mediaDuration;
-    // } catch (error) {
-    //   setCurDim({ ...curDim! });
-    // }
-    console.log("handeled");
-    // videoRef.current!.currentTime = 0;
     setCurDim({ ...curDim! });
   }
   return (
@@ -158,7 +191,8 @@ export default function VideoViewer({
             }}
             src={url}
             ref={videoRef}
-          />
+          ></AdvancedReactPlayer>
+          <audio ref={audioRef} src={audioUrl} />
 
           <div className="absolute bottom-0 left-0 w-full">
             <ProgressBar

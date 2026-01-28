@@ -28,6 +28,7 @@ export const createMainWindow = async (
     autoHideMenuBar: true,
     show: false,
 
+    resizable: false,
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,
