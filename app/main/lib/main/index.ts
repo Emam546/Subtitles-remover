@@ -19,7 +19,7 @@ const appServe = isProd
   : null;
 export const createMainWindow = async (
   options: BrowserWindowConstructorOptions,
-  preloadData?: Context
+  preloadData?: Context,
 ): Promise<BrowserWindow> => {
   const state: Electron.BrowserWindowConstructorOptions = {};
   const win = new MainWindow({
@@ -37,10 +37,13 @@ export const createMainWindow = async (
       additionalArguments: [
         convertFunc(
           encodeURIComponent(JSON.stringify(preloadData || null)),
-          "data"
+          "data",
         ),
       ],
     },
+  });
+  win.on("resized", () => {
+    win.maximize();
   });
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
