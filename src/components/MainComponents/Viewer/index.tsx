@@ -6,6 +6,7 @@ import AdvancedReactPlayer, { Dimensions } from "./player";
 import ColorRangeSelector, { ValueProps } from "./colorRange";
 import qs from "qs";
 import { SeekProps } from "@app/main/utils/SubtitlesRemover";
+import VideoLoadingItem from "@src/components/common/Loading/video_loading";
 export interface Props {
   duration: number;
   start: number;
@@ -35,6 +36,7 @@ export default function VideoViewer({
   const [curDuration, setCurDuration] = useState(start);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
   const [loading, setLoading] = useState(false);
+  const [videoRequesting, setVideoRequesting] = useState(true);
   const [colorRange, setColorRange] = useState<ValueProps>({
     colorRange: {
       min: [210, 210, 210],
@@ -71,15 +73,21 @@ export default function VideoViewer({
       // video buffering → pause audio
       audio.pause();
     };
-
     const onPlaying = () => {
       // video resumed → resume audio
       audio.play();
+      onFinishedLoading();
     };
-
+    const onFinishedLoading = () => {
+      setVideoRequesting(false);
+    };
+    const onLoading = () => {
+      onWaiting();
+      setVideoRequesting(true);
+    };
     video.addEventListener("play", onPlaying);
     video.addEventListener("pause", onWaiting);
-    video.addEventListener("loadstart", onWaiting);
+    video.addEventListener("loadstart", onLoading);
 
     const seeking = () => {
       const orgTime = video.currentTime + mediaDuration;
@@ -93,17 +101,22 @@ export default function VideoViewer({
     });
     video.addEventListener("canplaythrough", seeking);
     video.addEventListener("timeupdate", seeking);
-    video.addEventListener("waiting", onWaiting);
-    video.addEventListener("stalled", onWaiting);
+    video.addEventListener("waiting", onLoading);
+    video.addEventListener("stalled", onLoading);
+    video.addEventListener("loadeddata", onFinishedLoading);
+    video.addEventListener("loadedmetadata", onFinishedLoading);
     audioRef.current!.currentTime = mediaDuration;
     return () => {
       video.removeEventListener("play", onPlaying);
       video.removeEventListener("pause", onWaiting);
-      video.removeEventListener("canplaythrough", seeking);
+      video.removeEventListener("loadstart", onLoading);
+      video.removeEventListener("loadeddata", onFinishedLoading);
+      video.removeEventListener("loadedmetadata", onFinishedLoading);
 
+      video.removeEventListener("canplaythrough", seeking);
       video.removeEventListener("timeupdate", seeking);
-      video.removeEventListener("waiting", onWaiting);
-      video.removeEventListener("stalled", onWaiting);
+      video.removeEventListener("waiting", onLoading);
+      video.removeEventListener("stalled", onLoading);
       video.removeEventListener("playing", onPlaying);
     };
   }, [audioRef, videoRef, mediaDuration]);
@@ -193,7 +206,7 @@ export default function VideoViewer({
             ref={videoRef}
           ></AdvancedReactPlayer>
           <audio ref={audioRef} src={audioUrl} />
-
+          <VideoLoadingItem state={videoRequesting} />
           <div className="absolute bottom-0 left-0 w-full">
             <ProgressBar
               onSetVal={(time) => {
