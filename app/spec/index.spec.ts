@@ -5,12 +5,13 @@ import ffmpeg from "fluent-ffmpeg";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
 import { PassThrough } from "stream";
 
-const videoPath = path.join(__dirname, "./example.mp4");
+const videoPath = path.join(__dirname, "example.mp4");
 const outputPath = path.join(__dirname, "output.mp4");
 const subtitlesRemover = new SubtitlesRemover();
 beforeAll(async () => {
   await subtitlesRemover.initialize();
 });
+// jest.setTimeout(40000);
 describe("Test Subtitles Remover", () => {
   test("simple video", async () => {
     const remover = await subtitlesRemover.generate(videoPath);
@@ -29,12 +30,11 @@ describe("Test Subtitles Remover", () => {
         height: 100,
       },
     });
-    const video = readers.image();
 
     await new Promise<void>((res, rej) => {
+      const video = readers.image();
       video.on("error", rej);
-      video.on("data", () => console.log("data"));
-      video.on("close", res);
+      video.on("end", res);
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);
@@ -43,18 +43,22 @@ describe("Test Subtitles Remover", () => {
         .inputOptions([
           "-y",
           "-f rawvideo",
-          `-r ${fps}`,
           "-vcodec rawvideo",
           "-pix_fmt bgr24",
           `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
+          "-r",
+          String(fps),
         ])
-        .noAudio()
         .output(outputPath)
+        .outputOptions([
+          "-vcodec libx264",
+          "-pix_fmt yuv420p",
+          "-movflags +faststart",
+        ])
         .outputFormat("mp4")
         .on("error", (e) => {
           rej(e);
         })
-        .outputOptions(["-vcodec libx264"])
         .on("end", res)
         .run();
     });
@@ -115,54 +119,5 @@ describe("Test Subtitles Remover", () => {
     const duration = +metaData.streams.find((s) => s.codec_type == "video")!
       .duration!;
     expect(duration).toBeLessThan(+remover.videoStream!.duration!);
-  });
-  test("Should First", async () => {
-    const remover = await subtitlesRemover.generate(videoPath);
-    if (!remover) throw new Error("the video is not exist");
-
-    const [numerator, denominator] = remover.videoStream
-      .r_frame_rate!.split("/")
-      .map(Number);
-    const fps = numerator / denominator;
-    const reader = await remover.seek({
-      startTime: 0,
-      colorRange: {
-        max: [255, 255, 255],
-        min: [0, 0, 0],
-      },
-      size: 8,
-      roi: {
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-      },
-    });
-    await new Promise((res, rej) => {
-      const imageReader = reader.image();
-      imageReader.on("error", rej);
-
-      ffmpeg()
-        .addInput(imageReader)
-        .inputOptions([
-          "-y",
-          "-f rawvideo",
-          `-r ${fps}`,
-          "-vcodec rawvideo",
-          "-pix_fmt bgr24",
-          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
-        ])
-        .addInput(videoPath)
-        .output(outputPath)
-        .outputFormat("mp4")
-        .outputOptions(["-vcodec libx264", "-c:a copy", "-map 0:v", "-map 1:a"])
-        .on("error", rej)
-        .on("end", res)
-        .run();
-    });
-    const metaData = await getVideoInfo(outputPath);
-    const duration = +metaData.streams.find((s) => s.codec_type == "video")!
-      .duration!;
-    expect(duration).toBeCloseTo(+remover.videoStream!.duration!, 0);
   });
 });

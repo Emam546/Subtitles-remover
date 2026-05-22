@@ -12,7 +12,6 @@ const config: Config = {
   testMatch: ["**/spec/**/?(*.)+(spec|test).+(ts|js)"],
   testEnvironment: "node",
   preset: "ts-jest",
-  testTimeout: 5000,
   moduleFileExtensions: ["ts", "tsx", "js", "json", "css"],
   moduleNameMapper: {
     ...pathsToModuleNameMapper(

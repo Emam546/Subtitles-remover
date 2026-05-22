@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import base64
 from typing import Tuple, Iterable
-
+import struct
 
 def base64_to_image(b64_string: str, width: int, height: int) -> np.ndarray:
     """Decode base64 image to a NumPy array."""
@@ -20,18 +20,23 @@ def image_2_png(image: np.ndarray) -> str:
     return buffer
 
 
-def process_image(image: np.ndarray, roi: Tuple[int, int, int, int], size=3,
-                  color_range: Iterable = ((200, 200, 200), (255, 255, 255)),
-                  radius: int = 2, flags=cv2.INPAINT_TELEA):
+def process_image(
+    image: np.ndarray,
+    roi: Tuple[int, int, int, int],
+    size=3,
+    color_range: Iterable = ((200, 200, 200), (255, 255, 255)),
+    radius: int = 2,
+    flags=cv2.INPAINT_TELEA,
+):
     """Apply inpainting to the specified region."""
     x, y, w, h = roi
     kernel = np.ones((size, size), np.uint8)
 
-    cropped_img = image[y:y+h, x:x+w]
+    cropped_img = image[y : y + h, x : x + w]
     mask = cv2.inRange(cropped_img, *color_range)
     opening = cv2.dilate(mask, kernel)
     cropped_img = cv2.inpaint(cropped_img, opening, radius, flags)
-    image[y:y+h, x:x+w] = cropped_img
+    image[y : y + h, x : x + w] = cropped_img
     return image, np.array(cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR), np.uint8)
 
 
@@ -48,26 +53,33 @@ def main():
 
             # Decode image
 
-            image = base64_to_image(
-                data["image"], data["width"], data["height"])
+            image = base64_to_image(data["image"], data["width"], data["height"])
             roi = tuple(data["roi"])
             size = data.get("size", 3)
             color_range = tuple(
-                map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]])))
+                map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]]))
+            )
             radius = data.get("radius", 4)
             flags = data.get("flags", cv2.INPAINT_TELEA)
 
+            def send(buf: bytes):
+                sys.stdout.buffer.write(struct.pack(">I", len(buf)))
+                sys.stdout.buffer.write(buf)
+
             # Process image
             processed_image, kernel = process_image(
-                image, roi, size, color_range, radius, flags)
+                image, roi, size, color_range, radius, flags
+            )
+            x, y, w, h = roi
+            kernel = np.ones((size, size), np.uint8)
+            cropped_img = processed_image[y : y + h, x : x + w]
             # Encode and output result
-            sys.stdout.write(json.dumps({
-                "image":  base64.b64encode(processed_image.tobytes()).decode('utf-8'),
-                "jpg": base64.b64encode(cv2.imencode(".jpg", processed_image)[1]).decode("utf-8"),
-                "kernel": base64.b64encode(kernel.tobytes()).decode('utf-8')
-            }))
-
+            send(processed_image.tobytes())
+            send(cropped_img.tobytes())
+            send(cv2.imencode(".jpg", processed_image)[1])
+            send(kernel.tobytes())
             sys.stdout.flush()
+
         except Exception as e:
             sys.stderr.write(e.__str__())
             sys.stderr.flush()

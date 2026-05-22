@@ -47,6 +47,7 @@ export class SubtitlesRemover {
   clearWriters?: () => Promise<void>;
   async generate(videoPath: string) {
     await this.clearWriters?.();
+
     const metadata = await getVideoInfo(videoPath);
     const videoStreams = metadata.streams;
 
@@ -66,6 +67,7 @@ export class SubtitlesRemover {
       ): Promise<{
         image: () => Readable;
         jpg: () => Readable;
+        cropped: () => Readable;
         kernel: () => Readable;
       }> => {
         await this.clearWriters?.();
@@ -73,13 +75,32 @@ export class SubtitlesRemover {
         const { startTime, roi, colorRange, duration, size } = seek;
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
+          objectMode: true,
           transform: (chunk: Buffer, _, callback) => {
             if (!this.pythonProcess) throw new Error("Unrecognized process");
             const process = this.pythonProcess;
-            this.pythonProcess.stdout.once("data", function G(data: Buffer) {
-              process!.stdout.removeAllListeners("data");
-              callback(null, data.toString());
+            let buffer = Buffer.alloc(0);
+            const arr: Buffer[] = [];
+            process.stdout.on("data", (chunk: Buffer) => {
+              buffer = Buffer.concat([buffer, chunk]);
+              while (buffer.length >= 4) {
+                const size = buffer.readUInt32BE(0);
+                if (buffer.length < 4 + size) return;
+                const frame = buffer.subarray(4, 4 + size);
+                arr.push(frame);
+                buffer = buffer.subarray(4 + size);
+              }
+              if (arr.length == 4) {
+                process.stdout.removeAllListeners("data");
+                callback(null, {
+                  image: arr[0],
+                  cropped: arr[1],
+                  jpg: arr[2],
+                  kernel: arr[3],
+                });
+              }
             });
+
             if (this.pythonProcess.killed) return;
 
             this.pythonProcess.stdin.write(
@@ -128,36 +149,50 @@ export class SubtitlesRemover {
         return {
           image: () =>
             transform.pipe(
-              new PassThrough({
-                transform(chunk: string, _, callback) {
-                  const res = JSON.parse(chunk) as {
+              new Transform({
+                objectMode: true,
+                transform(chunk, _, callback) {
+                  const res = chunk as {
                     image: string;
-                    kernel: string;
                   };
-                  callback(null, Buffer.from(res.image, "base64"));
+                  callback(null, res.image);
                 },
               }),
             ),
           jpg: () =>
             transform.pipe(
-              new PassThrough({
-                transform(chunk: string, _, callback) {
-                  const res = JSON.parse(chunk) as {
+              new Transform({
+                objectMode: true,
+                transform(chunk, _, callback) {
+                  const res = chunk as {
                     jpg: string;
                   };
                   callback(null, res.jpg);
                 },
               }),
             ),
+          cropped: () =>
+            transform.pipe(
+              new Transform({
+                objectMode: true,
+                transform(chunk, _, callback) {
+                  const res = chunk as {
+                    cropped: string;
+                  };
+                  callback(null, res.cropped);
+                },
+              }),
+            ),
+
           kernel: () =>
             transform.pipe(
-              new PassThrough({
-                transform(chunk: string, _, callback) {
-                  const res = JSON.parse(chunk) as {
-                    image: string;
+              new Transform({
+                objectMode: true,
+                transform(chunk, _, callback) {
+                  const res = chunk as {
                     kernel: string;
                   };
-                  callback(null, Buffer.from(res.kernel, "base64"));
+                  callback(null, res.kernel);
                 },
               }),
             ),
