@@ -39,18 +39,8 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     const [rndDimensions, _setRndDimensions] = useState<Dimensions>();
     useEffect(() => {}, []);
     function setRndDimensions(rndDimensions: Dimensions) {
-      if (!dimensions) return;
-      if (!videoElement) return;
-      const WRatio = videoElement.videoWidth / dimensions.width;
-      const HRatio = videoElement.videoHeight / dimensions.height;
-      const dim = {
-        x: Math.floor(rndDimensions.x * WRatio),
-        y: Math.floor(rndDimensions.y * HRatio),
-        width: Math.floor(rndDimensions.width * WRatio),
-        height: Math.floor(rndDimensions.height * HRatio),
-      };
-      onBoxResize?.(dim);
-      _setRndDimensions(dim);
+      onBoxResize?.(rndDimensions);
+      _setRndDimensions(rndDimensions);
     }
     useEffect(() => {
       if (!videoElement) return;
@@ -111,7 +101,7 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
           "aspect-[4/3]": aspect == "4:3",
         })}
       >
-        <video {...props} ref={allRef} className="w-full h-full"></video>
+        <video {...props} ref={allRef} className="w-full h-full "></video>
         {dimensions && rndDimensions && (
           <div
             className="absolute"
@@ -138,17 +128,17 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
               }}
               onDragStop={(e, d) => {
                 setRndDimensions({
-                  x: d.x,
-                  y: d.y,
-                  width: rndDimensions.width * scaleX,
-                  height: rndDimensions.height * scaleY,
+                  ...rndDimensions,
+                  x: d.x / scaleX,
+                  y: d.y / scaleY,
                 });
               }}
               onResizeStop={(e, direction, ref, delta, position) => {
                 setRndDimensions({
-                  width: ref.offsetWidth,
-                  height: ref.offsetHeight,
-                  ...position,
+                  x: position.x / scaleX,
+                  y: position.y / scaleY,
+                  width: ref.offsetWidth / scaleX,
+                  height: ref.offsetHeight / scaleY,
                 });
               }}
               maxHeight={`${dimensions.height}px`}
