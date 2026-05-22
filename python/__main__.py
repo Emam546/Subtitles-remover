@@ -71,7 +71,6 @@ def main():
                 image, roi, size, color_range, radius, flags
             )
             x, y, w, h = roi
-            kernel = np.ones((size, size), np.uint8)
             cropped_img = processed_image[y : y + h, x : x + w]
             # Encode and output result
             send(processed_image.tobytes())
