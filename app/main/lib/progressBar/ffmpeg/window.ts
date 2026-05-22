@@ -3,11 +3,10 @@ import { BaseDownloaderWindow, DownloaderData } from "../window";
 import ffmpeg from "fluent-ffmpeg";
 import {
   generateSubtitlesRemover,
-  SeekProps,
   SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
 import { Writable } from "stream";
-
+import { SeekProps } from "@app/main/utils/isValidProps";
 export interface FfmpegVideoData extends SeekProps {
   path: string;
 }
@@ -20,14 +19,14 @@ export class FfmpegWindow extends BaseDownloaderWindow {
   remover?: SubtitlesRemover;
   constructor(
     options: BrowserWindowConstructorOptions,
-    data: FFmpegDownloaderData
+    data: FFmpegDownloaderData,
   ) {
     super(options, data);
     this.ffmpegData = data.ffmpegData;
 
     if (data.fileStatus.path == data.ffmpegData?.path) {
       this.error(
-        new Error("the save path must be different than the video path")
+        new Error("the save path must be different than the video path"),
       );
       return;
     }
@@ -47,17 +46,18 @@ export class FfmpegWindow extends BaseDownloaderWindow {
     if (num > FfmpegWindow.MAX_TRIES) return this.error(err);
     try {
       const remover = await this.remover.generate(this.ffmpegData.path);
+      if (!remover) throw new Error("the video is not exist");
       const numbOfFrames = Math.round(
         parseInt(remover.videoStream.nb_frames || "") *
           (this.ffmpegData.duration && remover.videoStream.duration
             ? this.ffmpegData.duration / parseInt(remover.videoStream.duration)
-            : 1)
+            : 1),
       );
       this.setCurSize(0);
       this.changeState("connecting");
       this.setResumability(true);
       this.setPauseButton("Pause");
-      const reader = remover.seek({ ...this.ffmpegData });
+      const reader = await remover.seek({ ...this.ffmpegData });
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);
@@ -69,7 +69,7 @@ export class FfmpegWindow extends BaseDownloaderWindow {
             this.webContents.send("chunk", chunk.toString());
             callback();
           },
-        })
+        }),
       );
 
       videoReader.on("error", this.error);
@@ -100,12 +100,12 @@ export class FfmpegWindow extends BaseDownloaderWindow {
           this.onGetChunk(targetSize - this.curSize);
           if (progress.percent) {
             const totalFileSize = Math.round(
-              (targetSize / progress.percent) * 100
+              (targetSize / progress.percent) * 100,
             );
             this.setFileSize(totalFileSize);
           } else if (numbOfFrames) {
             const totalFileSize = Math.round(
-              (numbOfFrames / progress.frames) * targetSize
+              (numbOfFrames / progress.frames) * targetSize,
             );
             this.setFileSize(totalFileSize);
           }

@@ -15,6 +15,7 @@ export default function SharedLayout({
 }) {
   const router = useRouter();
   useEffect(() => {
+    if (window.Environment != "desktop") return;
     if (window.context) {
       router.push({
         pathname: router.pathname,
@@ -49,7 +50,7 @@ export default function SharedLayout({
             </section>
             <InputHolder />
             <section className="my-4">{components}</section>
-            
+
             {children}
           </main>
 

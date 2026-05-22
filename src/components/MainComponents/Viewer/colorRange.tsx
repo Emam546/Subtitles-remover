@@ -17,10 +17,10 @@ const ColorRangeSelector = React.forwardRef<
   ColorRangeSelectorProps
 >(({ onColorParams: onChange, id, colorParams: val }, ref) => {
   const [minColor, setMinColor] = useState<[number, number, number]>(
-    val.colorRange.min
+    val.colorRange.min,
   );
   const [maxColor, setMaxColor] = useState<[number, number, number]>(
-    val.colorRange.max
+    val.colorRange.max,
   );
   const [radius, setRadius] = useState(3);
 
@@ -124,12 +124,17 @@ const ColorRangeSelector = React.forwardRef<
         <label className="block mb-2 text-lg font-medium text-gray-600">
           Color Preview
         </label>
-        <video className="w-full mx-auto my-2 rounded max-h-96" ref={ref} />
+        <video
+          src="app://kernel"
+          width="100%"
+          className="w-full mx-auto my-2 rounded max-h-96"
+          ref={ref}
+        />
         <div
           className="w-full h-24 border rounded-[30px]"
           style={{
             background: `linear-gradient(to right, rgb(${minColor.join(
-              ","
+              ",",
             )}), rgb(${maxColor.join(",")}))`,
           }}
         />

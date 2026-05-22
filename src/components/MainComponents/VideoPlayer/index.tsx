@@ -33,9 +33,10 @@ export default function VideoClipper() {
     if (data?.path == path) return;
     const controller = new AbortController();
     window.api
-      .invoke("insertVideo", path!)
+      .invoke("getInfo", path!)
       .then((result) => {
         if (controller.signal.aborted) return;
+        if (!result) return;
         setData({
           duration: Math.floor(parseFloat(result.duration!)),
           path: path,
@@ -75,7 +76,7 @@ export default function VideoClipper() {
         path={path}
         defaultBox={predictSubtitleBox(
           data.videoStream.width!,
-          data.videoStream.height!
+          data.videoStream.height!,
         )}
         setStartEndCut={(start, end) => {
           router.replace(
@@ -84,7 +85,7 @@ export default function VideoClipper() {
               query: { ...router.query, start, end }, // Add or update the query parameters
             },
             undefined,
-            { scroll: false }
+            { scroll: false },
           );
         }}
       />

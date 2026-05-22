@@ -5,7 +5,17 @@ import React, { ComponentProps, useEffect, useState } from "react";
 import classNames from "classnames";
 import { Dimensions, predictSubtitleBox } from "@src/utils";
 export type { Dimensions } from "@src/utils";
-export interface Props extends ComponentProps<"video"> {
+import ReactPlayer, { ReactPlayerProps } from "react-player";
+type RemoveIndexSignature<T> = {
+  [K in keyof T as string extends K
+    ? never
+    : number extends K
+      ? never
+      : symbol extends K
+        ? never
+        : K]: T[K];
+};
+export interface Props extends RemoveIndexSignature<ReactPlayerProps> {
   aspect?: "16:9" | "4:3";
   id: string;
   onBoxResize: (dim: Dimensions) => any;
@@ -32,7 +42,8 @@ const getVideoElementDimensions = (video: HTMLVideoElement): Dimensions => {
   }
   return { x, y, width, height };
 };
-const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
+
+const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
   ({ aspect, onBoxResize, id, ...props }, ref) => {
     const [videoElement, setVideoElement] = useState<HTMLVideoElement>();
     const [dimensions, setDimensions] = useState<Dimensions>();
@@ -45,7 +56,7 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     useEffect(() => {
       if (!videoElement) return;
       const listener = () => {
-        setDimensions(getVideoElementDimensions(videoElement));
+        setDimensions(getVideoElementDimensions(videoElement as any));
       };
       const observer = new ResizeObserver((entries) => {
         listener();
@@ -60,7 +71,7 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
     useEffect(() => {
       if (!videoElement) return;
       const listener = () => {
-        setDimensions(getVideoElementDimensions(videoElement));
+        setDimensions(getVideoElementDimensions(videoElement as any));
         _setRndDimensions(
           predictSubtitleBox(videoElement.videoWidth, videoElement.videoHeight),
         );
@@ -68,11 +79,11 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
       _setRndDimensions(undefined);
       if (videoElement.readyState >= 3) listener();
       else {
-        videoElement.addEventListener("loadedmetadata", listener, {
+        videoElement?.addEventListener("loadedmetadata", listener, {
           once: true,
         });
         return () => {
-          videoElement.removeEventListener("loadedmetadata", listener);
+          videoElement?.removeEventListener("loadedmetadata", listener);
         };
       }
     }, [videoElement, id]);
@@ -81,10 +92,13 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
       const listener = () =>
         setDimensions(getVideoElementDimensions(videoElement));
       if (videoElement.readyState >= 3) listener();
-    }, [aspect]);
+    }, [aspect, videoElement]);
     const allRef = useSyncRefs(
       ref,
-      setVideoElement as React.RefCallback<HTMLVideoElement>,
+      () =>
+        setVideoElement(
+          videoElement,
+        ) as unknown as React.RefCallback<ReactPlayer>,
     );
     const scaleX =
       dimensions && videoElement
@@ -101,7 +115,7 @@ const AdvancedReactPlayer = React.forwardRef<HTMLVideoElement, Props>(
           "aspect-[4/3]": aspect == "4:3",
         })}
       >
-        <video {...props} ref={allRef} className="w-full h-full "></video>
+        <ReactPlayer {...props} ref={allRef} className="w-full h-full " />
         {dimensions && rndDimensions && (
           <div
             className="absolute"

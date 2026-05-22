@@ -28,7 +28,6 @@ export const createMainWindow = async (
     autoHideMenuBar: true,
     show: false,
 
-    resizable: false,
     webPreferences: {
       ...state.webPreferences,
       ...options.webPreferences,
@@ -42,14 +41,11 @@ export const createMainWindow = async (
       ],
     },
   });
-  win.on("resized", () => {
-    win.maximize();
-  });
+
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
-  await win.initialize();
   if (isProd && appServe) {
     await appServe(win);
   } else if (isDev) {

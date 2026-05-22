@@ -12,10 +12,10 @@ beforeAll(async () => {
   await subtitlesRemover.initialize();
 });
 describe("Test Subtitles Remover", () => {
-  jest.setTimeout(10000);
   test("simple video", async () => {
     const remover = await subtitlesRemover.generate(videoPath);
-    const readers = remover.seek({
+    if (!remover) throw new Error("the video is not exist");
+    const readers = await remover.seek({
       startTime: 0,
       colorRange: {
         max: [255, 255, 255],
@@ -28,14 +28,13 @@ describe("Test Subtitles Remover", () => {
         width: 100,
         height: 100,
       },
-      duration: 100000000,
     });
     const video = readers.image();
 
     await new Promise<void>((res, rej) => {
       video.on("error", rej);
+      video.on("data", () => console.log("data"));
       video.on("close", res);
-      // video.on("data", (data) => console.log(data.length));
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);
@@ -56,7 +55,7 @@ describe("Test Subtitles Remover", () => {
           rej(e);
         })
         .outputOptions(["-vcodec libx264"])
-        .on("end", () => res())
+        .on("end", res)
         .run();
     });
     const metaData = await getVideoInfo(outputPath);
@@ -66,7 +65,9 @@ describe("Test Subtitles Remover", () => {
   });
   test("test with a seeking", async () => {
     const remover = await subtitlesRemover.generate(videoPath);
-    const readers = remover.seek({
+    if (!remover) throw new Error("the video is not exist");
+
+    const readers = await remover.seek({
       startTime: 2,
       colorRange: {
         max: [255, 255, 255],
@@ -85,7 +86,6 @@ describe("Test Subtitles Remover", () => {
     await new Promise<void>((res, rej) => {
       const passThrough = new PassThrough();
       video.on("error", rej);
-      // video.on("data", () => console.log(DataTransfer.length));
       video.pipe(passThrough);
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
@@ -116,52 +116,53 @@ describe("Test Subtitles Remover", () => {
       .duration!;
     expect(duration).toBeLessThan(+remover.videoStream!.duration!);
   });
-});
+  test("Should First", async () => {
+    const remover = await subtitlesRemover.generate(videoPath);
+    if (!remover) throw new Error("the video is not exist");
 
-test("Should First", async () => {
-  const remover = await subtitlesRemover.generate(videoPath);
-  const [numerator, denominator] = remover.videoStream
-    .r_frame_rate!.split("/")
-    .map(Number);
-  const fps = numerator / denominator;
-  const reader = remover.seek({
-    startTime: 0,
-    colorRange: {
-      max: [255, 255, 255],
-      min: [0, 0, 0],
-    },
-    size: 8,
-    roi: {
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-    },
-  });
-  await new Promise((res, rej) => {
-    const imageReader = reader.image();
-    imageReader.on("error", rej);
+    const [numerator, denominator] = remover.videoStream
+      .r_frame_rate!.split("/")
+      .map(Number);
+    const fps = numerator / denominator;
+    const reader = await remover.seek({
+      startTime: 0,
+      colorRange: {
+        max: [255, 255, 255],
+        min: [0, 0, 0],
+      },
+      size: 8,
+      roi: {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      },
+    });
+    await new Promise((res, rej) => {
+      const imageReader = reader.image();
+      imageReader.on("error", rej);
 
-    ffmpeg()
-      .addInput(imageReader)
-      .inputOptions([
-        "-y",
-        "-f rawvideo",
-        `-r ${fps}`,
-        "-vcodec rawvideo",
-        "-pix_fmt bgr24",
-        `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
-      ])
-      .addInput(videoPath)
-      .output(outputPath)
-      .outputFormat("mp4")
-      .outputOptions(["-vcodec libx264", "-c:a copy", "-map 0:v", "-map 1:a"])
-      .on("error", rej)
-      .on("end", res)
-      .run();
+      ffmpeg()
+        .addInput(imageReader)
+        .inputOptions([
+          "-y",
+          "-f rawvideo",
+          `-r ${fps}`,
+          "-vcodec rawvideo",
+          "-pix_fmt bgr24",
+          `-s ${remover.videoStream!.width}:${remover.videoStream!.height}`,
+        ])
+        .addInput(videoPath)
+        .output(outputPath)
+        .outputFormat("mp4")
+        .outputOptions(["-vcodec libx264", "-c:a copy", "-map 0:v", "-map 1:a"])
+        .on("error", rej)
+        .on("end", res)
+        .run();
+    });
+    const metaData = await getVideoInfo(outputPath);
+    const duration = +metaData.streams.find((s) => s.codec_type == "video")!
+      .duration!;
+    expect(duration).toBeCloseTo(+remover.videoStream!.duration!, 0);
   });
-  const metaData = await getVideoInfo(outputPath);
-  const duration = +metaData.streams.find((s) => s.codec_type == "video")!
-    .duration!;
-  expect(duration).toBeCloseTo(+remover.videoStream!.duration!, 0);
 });

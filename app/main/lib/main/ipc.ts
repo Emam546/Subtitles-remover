@@ -4,8 +4,8 @@ import { DownloadFileToDesktop } from "./utils/DownloadFile";
 import { ObjectEntries } from "@utils/index";
 import { ipcMain } from "electron";
 import { MainWindow } from "./window";
-import { Downloader } from "./utils/downloader";
 import { processVideo } from "./processVideo";
+import { getVideoInfo } from "@app/main/utils/ffmpeg";
 
 type OnMethodsType = {
   [K in keyof ApiMain.OnMethods]: ConvertToIpCMainFunc<ApiMain.OnMethods[K]>;
@@ -28,20 +28,15 @@ type HandelOnceMethodsType = {
 export const OnMethods: OnMethodsType = {};
 export const OnceMethods: OnceMethodsType = {};
 export const HandleMethods: HandelMethodsType = {
-  async seek(e, props) {
-    const window = MainWindow.fromWebContents(e.sender)!;
-    await window.seek(props);
-  },
   Download(_, ...args) {
     return DownloadFileToDesktop(...args);
   },
   processVideo(_, ...args) {
     return processVideo(...args);
   },
-  async insertVideo(e, ...params) {
-    const window = MainWindow.fromWebContents(e.sender)!;
-    const remover = await window!.generate(...params);
-    return remover!.videoStream;
+  async getInfo(_, videoPath) {
+    const remover = await getVideoInfo(videoPath);
+    return remover.streams.find((val) => val.codec_type == "video");
   },
 };
 export const HandleOnceMethods: HandelOnceMethodsType = {};

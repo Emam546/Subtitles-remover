@@ -40,7 +40,6 @@ else
     if (MainWindow.Window) {
       if (MainWindow.Window.isMinimized()) MainWindow.Window.restore();
       MainWindow.Window.focus();
-      console.log(argv);
       if (process.platform.startsWith("win") && argv.length >= 2) {
         const data = lunchArgs(argv);
         if (data) MainWindow.Window.webContents.send("open-file", data);

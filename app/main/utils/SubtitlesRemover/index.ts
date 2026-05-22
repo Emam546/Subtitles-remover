@@ -4,20 +4,8 @@ import ffmpeg from "fluent-ffmpeg";
 import path from "path";
 import { PassThrough, Readable, Transform } from "stream";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
+import { isValidQueryProps } from "../isValidProps";
 
-export interface Dimensions {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-export interface SeekProps {
-  startTime: number;
-  roi: Dimensions;
-  duration?: number;
-  colorRange: { min: [number, number, number]; max: [number, number, number] };
-  size: number;
-}
 const pythonPath: [string, string[] | undefined] =
   app && app.isPackaged
     ? [
@@ -56,31 +44,33 @@ class FixedSizeChunkStream extends Transform {
 
 export class SubtitlesRemover {
   pythonProcess?: ChildProcessWithoutNullStreams;
+  clearWriters?: () => Promise<void>;
   async generate(videoPath: string) {
+    await this.clearWriters?.();
     const metadata = await getVideoInfo(videoPath);
     const videoStreams = metadata.streams;
 
     // Additional info: codec and resolution
     const videoStream = videoStreams.find(
-      (stream) => stream.codec_type === "video"
-    )!;
+      (stream) => stream.codec_type === "video",
+    );
+    if (!videoStream) return null;
     const height = videoStream.height!;
     const width = videoStream.width!;
     const frame_size = width * height * 3;
     return {
       videoPath,
       videoStream,
-      seek: ({
-        startTime,
-        roi,
-        colorRange,
-        duration,
-        size,
-      }: SeekProps): {
+      seek: async (
+        seek: unknown,
+      ): Promise<{
         image: () => Readable;
         jpg: () => Readable;
         kernel: () => Readable;
-      } => {
+      }> => {
+        await this.clearWriters?.();
+        if (!isValidQueryProps(seek)) throw new Error("uncorrect props");
+        const { startTime, roi, colorRange, duration, size } = seek;
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
           transform: (chunk: Buffer, _, callback) => {
@@ -91,6 +81,7 @@ export class SubtitlesRemover {
               callback(null, data.toString());
             });
             if (this.pythonProcess.killed) return;
+
             this.pythonProcess.stdin.write(
               JSON.stringify({
                 image: chunk.toString("base64"),
@@ -99,7 +90,7 @@ export class SubtitlesRemover {
                 size,
                 width,
                 height,
-              }) + "\n"
+              }) + "\n",
             );
           },
         });
@@ -122,14 +113,18 @@ export class SubtitlesRemover {
             if (!transform.closed) transform.emit("error", e);
           });
         process.pipe(fixed);
-        transform.on("error", (e) => {
-          console.error(e);
-        });
         transform.on("close", () => {
           process.kill("");
           this.pythonProcess?.stderr.removeListener("data", errCall);
         });
-
+        this.clearWriters = () => {
+          transform.destroy();
+          return new Promise((res) => {
+            setTimeout(() => {
+              res();
+            }, 1);
+          });
+        };
         return {
           image: () =>
             transform.pipe(
@@ -141,7 +136,7 @@ export class SubtitlesRemover {
                   };
                   callback(null, Buffer.from(res.image, "base64"));
                 },
-              })
+              }),
             ),
           jpg: () =>
             transform.pipe(
@@ -152,7 +147,7 @@ export class SubtitlesRemover {
                   };
                   callback(null, res.jpg);
                 },
-              })
+              }),
             ),
           kernel: () =>
             transform.pipe(
@@ -164,7 +159,7 @@ export class SubtitlesRemover {
                   };
                   callback(null, Buffer.from(res.kernel, "base64"));
                 },
-              })
+              }),
             ),
         };
       },
@@ -180,14 +175,16 @@ export class SubtitlesRemover {
         res();
       });
       this.pythonProcess.stderr.on("data", (e: Buffer) =>
-        console.error(e.toString())
+        console.error(e.toString()),
       );
       this.pythonProcess.stderr.once("data", rej);
     });
   }
   kill() {
-    if (this.pythonProcess && !this.pythonProcess.killed)
-      this.pythonProcess.kill();
+    this.clearWriters?.().then(() => {
+      if (this.pythonProcess && !this.pythonProcess.killed)
+        this.pythonProcess.kill();
+    });
   }
   constructor() {}
 }

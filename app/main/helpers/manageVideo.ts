@@ -1,11 +1,13 @@
 import {
   generateSubtitlesRemover,
-  SeekProps,
+  SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
 import { PassThrough, Readable } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 import qs from "qs";
-import { protocol, net, app } from "electron";
+import { protocol, app } from "electron";
+import { isValidQueryProps, SeekProps } from "../utils/isValidProps";
+import { MainWindow } from "../lib/main/window";
 const videoProtocolName = "video";
 const fileProtocol = "filo";
 protocol.registerSchemesAsPrivileged([
@@ -55,47 +57,37 @@ function queryToProps(params: string): SeekProps {
     size: parseInt(obj.size),
   };
 }
-function ReadableToWebStream(stream: Readable) {
-  async function* nodeStreamToIterator(stream: Readable) {
-    for await (const chunk of stream) {
-      yield chunk;
-    }
-  }
-  function iteratorToStream<T, G, S>(iterator: AsyncGenerator<T, G, S>) {
-    return new ReadableStream({
-      async pull(controller) {
-        const { value, done } = await iterator.next();
-
-        if (done) {
-          controller.close();
-        } else {
-          controller.enqueue(new Uint8Array(value as any));
-        }
-      },
-    });
-  }
-  return iteratorToStream(nodeStreamToIterator(stream));
-}
 export async function fileHandler() {
   const remover = await generateSubtitlesRemover();
+  let orgFilePath: string = "";
+  let reader: Awaited<ReturnType<SubtitlesRemover["generate"]>>;
+  const previewKernel = new PassThrough({});
+  previewKernel.on("data", () => console.log("data"));
   app.on("before-quit", async () => {
     remover.kill();
   });
-  protocol.registerStreamProtocol(videoProtocolName, async (req, callback) => {
+  protocol.handle(videoProtocolName, async (req) => {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);
-    const reader = await remover.generate(filePath);
-    // if (this.clearWriters) await this.clearWriters();
+    if (filePath != orgFilePath) reader = await remover.generate(filePath);
+
+    if (reader == null)
+      return new Response("Not found", {
+        status: 404,
+        statusText: "the video is not exist",
+      });
+    orgFilePath = filePath;
+
     const videoStream = reader.videoStream;
     const props = queryToProps(url.search.slice(1));
-    const readerVideo = reader.seek(props);
+    if (!isValidQueryProps(props)) return new Response(null, { status: 404 });
+    const readerVideo = await reader.seek(props);
     const [numerator, denominator] = videoStream
       .r_frame_rate!.split("/")
       .map(Number);
     const fps = numerator / denominator;
     const videoWrite = new PassThrough({});
-    const imageReader = readerVideo.image();
-    const videoProcess = ffmpeg(imageReader)
+    ffmpeg(readerVideo.image())
       .inputOptions([
         "-y",
         "-f rawvideo",
@@ -107,85 +99,62 @@ export async function fileHandler() {
       .output(videoWrite)
       .outputFormat("mp4")
       .on("error", (e) => {
-        console.error(e);
         if (!videoWrite.closed) videoWrite.emit("error", e);
       })
       .outputOptions([
         "-vcodec libx264",
         "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-      ]);
-    videoWrite.on("close", () => {
-      // imageReader.destroy();
-      // this.webContents.emit("close");
-      videoProcess.kill("");
+      ])
+      .run();
+
+    ffmpeg(readerVideo.kernel())
+      .inputOptions([
+        "-y",
+        "-f rawvideo",
+        `-r ${fps}`,
+        "-vcodec rawvideo",
+        "-pix_fmt bgr24",
+        `-s ${videoStream!.width}:${videoStream!.height}`,
+      ])
+      .output(previewKernel, { end: false })
+      .outputFormat("mp4")
+      .on("error", (e) => {
+        if (!videoWrite.closed) videoWrite.emit("error", e);
+      })
+      .outputOptions([
+        "-vcodec libx264",
+        "-movflags faststart+separate_moof+empty_moov+default_base_moof",
+      ])
+      .run();
+    videoWrite.on("error", (e) => {
+      if (!videoWrite.closed) MainWindow.Window?.webContents.send("error", e);
     });
-    videoProcess.run();
-    callback({
-      statusCode: 200,
+    return new Response(videoWrite as any, {
       headers: {
         "Content-Type": "video/mp4",
       },
-      data: videoWrite,
+    });
+  });
+  protocol.handle("app", async (req) => {
+    if (req.url !== "app://kernel") {
+      return new Response("Not Found", {
+        status: 404,
+      });
+    }
+    console.log("yes");
+    previewKernel.unpipe();
+    return new Response(previewKernel.pipe(new PassThrough({})) as any, {
+      headers: {
+        "Content-Type": "video/mp4",
+        "Cache-Control": "no-cache",
+      },
     });
   });
   protocol.registerFileProtocol(fileProtocol, async (req, callback) => {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);
-    console.log(filePath);
     callback({
       path: filePath,
     });
   });
-  // protocol.handle(videoProtocolName, async (req) => {
-  //   const url = new URL(req.url);
-  //   const filePath = decodeURI(url.pathname.split("/")[1]);
-  //   const reader = await remover.generate(filePath);
-  //   // if (this.clearWriters) await this.clearWriters();
-  //   const videoStream = reader.videoStream;
-  //   const props = queryToProps(url.search.slice(1));
-  //   const readerVideo = reader.seek(props);
-  //   const [numerator, denominator] = videoStream
-  //     .r_frame_rate!.split("/")
-  //     .map(Number);
-  //   const fps = numerator / denominator;
-  //   const videoWrite = new PassThrough({});
-  //   const imageReader = readerVideo.image();
-  //   const videoProcess = ffmpeg(imageReader)
-  //     .inputOptions([
-  //       "-y",
-  //       "-f rawvideo",
-  //       `-r ${fps}`,
-  //       "-vcodec rawvideo",
-  //       "-pix_fmt bgr24",
-  //       `-s ${videoStream!.width}:${videoStream!.height}`,
-  //     ])
-  //     .output(videoWrite)
-  //     .outputFormat("mp4")
-  //     .on("error", (e) => {
-  //       console.error(e);
-  //       if (!videoWrite.closed) videoWrite.emit("error", e);
-  //     })
-  //     .outputOptions([
-  //       "-vcodec libx264",
-  //       "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-  //     ]);
-  //   videoWrite.on("close", () => {
-  //     // imageReader.destroy();
-  //     // this.webContents.emit("close");
-  //     videoProcess.kill("");
-  //   });
-  //   videoProcess.run();
-  //   // this.clearWriters = async () => {
-  //   //   if (!videoWrite.closed) videoWrite.destroy();
-  //   //   return await new Promise((res) => {
-  //   //     setTimeout(res, 100);
-  //   //   });
-  //   // };
-
-  //   return new Response(ReadableToWebStream(videoWrite), {
-  //     headers: {
-  //       "Content-Type": "video/mp4",
-  //     },
-  //   });
-  // });
 }

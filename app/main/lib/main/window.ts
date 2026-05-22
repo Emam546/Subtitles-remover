@@ -1,138 +1,12 @@
-import {
-  generateSubtitlesRemover,
-  SeekProps,
-  SubtitlesRemover,
-} from "@app/main/utils/SubtitlesRemover";
 import { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
-import { Writable } from "stream";
-import ffmpeg from "fluent-ffmpeg";
 export class MainWindow extends BrowserWindow {
   public static Window: BrowserWindow | null = null;
-  remover?: SubtitlesRemover;
-  reader?: Awaited<ReturnType<SubtitlesRemover["generate"]>>;
-  clearWriters?: () => Promise<void>;
   public static fromWebContents(
-    webContents: Electron.WebContents
+    webContents: Electron.WebContents,
   ): MainWindow | null {
     return BrowserWindow.fromWebContents(webContents) as MainWindow;
   }
 
-  async seek(props: SeekProps) {
-    if (this.clearWriters) await this.clearWriters();
-    if (!this.reader) throw new Error("unrecognized video path");
-    const videoStream = this.reader.videoStream;
-    const reader = this.reader.seek(props);
-    const [numerator, denominator] = videoStream
-      .r_frame_rate!.split("/")
-      .map(Number);
-    const fps = numerator / denominator;
-    const videoWrite = new Writable({
-      write: (chunk: Buffer, _, callback) => {
-        if (videoWrite.closed) return;
-        this.webContents.send("chunk", chunk);
-        callback(null);
-      },
-    });
-    const kernelVideoWrite = new Writable({
-      write: (chunk: Buffer, _, callback) => {
-        this.webContents.send("kernel-chunk", chunk);
-        callback(null);
-      },
-    });
-    const audioWriter = new Writable({
-      write: (chunk: Buffer, _, callback) => {
-        this.webContents.send("audio-chunk", chunk);
-        callback(null);
-      },
-    });
-    const imageReader = reader.image();
-    const videoProcess = ffmpeg(imageReader)
-      .inputOptions([
-        "-y",
-        "-f rawvideo",
-        `-r ${fps}`,
-        "-vcodec rawvideo",
-        "-pix_fmt bgr24",
-        `-s ${videoStream!.width}:${videoStream!.height}`,
-      ])
-      .output(videoWrite)
-      .outputFormat("mp4")
-      .on("error", (e) => {
-        if (!videoWrite.closed) videoWrite.emit("error", e);
-      })
-      .outputOptions([
-        "-vcodec libx264",
-        "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-      ]);
-    const kernelReader = reader.kernel();
-
-    const kernelVideoProcess = ffmpeg(kernelReader)
-      .inputOptions([
-        "-y",
-        "-f rawvideo",
-        `-r ${fps}`,
-        "-vcodec rawvideo",
-        "-pix_fmt bgr24",
-        `-s ${props.roi.width}:${props.roi.height}`,
-      ])
-      .noAudio()
-      .output(kernelVideoWrite)
-      .outputFormat("mp4")
-      .on("error", (e) => {
-        if (!kernelVideoWrite.closed) kernelVideoWrite.emit("error", e);
-      })
-      .outputOptions([
-        "-vcodec libx264",
-        "-movflags faststart+separate_moof+empty_moov+default_base_moof",
-      ]);
-
-    const audioProcess = ffmpeg(this.reader.videoPath)
-      .setStartTime(props.startTime)
-      .noVideo()
-      .on("error", (e) => {
-        if (!audioWriter.closed) audioWriter.emit("error", e);
-      })
-      .output(audioWriter)
-      .format("mp3")
-      .audioCodec("libmp3lame");
-
-    videoWrite.on("error", (error) => {
-      this.webContents.send("error", error);
-    });
-    audioWriter.on("close", () => {
-      audioProcess.kill("");
-    });
-    kernelVideoProcess.on("close", () => {
-      kernelReader.destroy();
-      kernelVideoProcess.kill("");
-    });
-    videoWrite.on("close", () => {
-      imageReader.destroy();
-      this.webContents.emit("close");
-      videoProcess.kill("");
-    });
-    audioProcess.run();
-    videoProcess.run();
-    kernelVideoProcess.run();
-    this.clearWriters = async () => {
-      if (!videoWrite.closed) videoWrite.destroy();
-      if (!audioWriter.closed) audioWriter.destroy();
-      if (!kernelVideoWrite.closed) kernelVideoWrite.destroy();
-      return await new Promise((res) => {
-        setTimeout(res, 100);
-      });
-    };
-    return videoWrite;
-  }
-  async generate(...params: Parameters<SubtitlesRemover["generate"]>) {
-    if (this.clearWriters) await this.clearWriters();
-    if (!this.remover) throw new Error("unrecognized remover path");
-    this.reader = await this.remover.generate(...params);
-    return this.reader;
-  }
-  async initialize() {
-    this.remover = await generateSubtitlesRemover();
-  }
   constructor(options: BrowserWindowConstructorOptions) {
     super(options);
     if (!MainWindow.Window) {
@@ -140,8 +14,6 @@ export class MainWindow extends BrowserWindow {
     }
     this.on("close", async () => {
       if (this.id == MainWindow.Window?.id) MainWindow.Window = null;
-      if (this.clearWriters) await this.clearWriters();
-      if (this.remover) this.remover.kill();
     });
   }
 }

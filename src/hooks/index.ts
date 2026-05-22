@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, DependencyList } from "react";
 function isRefObject<T>(ref: React.Ref<T>): ref is React.RefCallback<T> {
   return typeof ref === "function" || ref instanceof Function;
 }
@@ -18,4 +18,25 @@ export function useSyncRefs<T>(...refs: React.Ref<T>[]) {
   }, [targetRef.current, refs]);
 
   return targetRef;
+}
+import { useState } from "react";
+
+export function useMemoDebounce<T>(
+  factory: () => T,
+  args: DependencyList,
+  delay: number,
+): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(() => factory());
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedValue(factory());
+    }, delay);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [...args]);
+
+  return debouncedValue;
 }
