@@ -2,7 +2,7 @@ import {
   generateSubtitlesRemover,
   SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
-import { PassThrough, Readable } from "stream";
+import { PassThrough, Transform } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 import qs from "qs";
 import { protocol, app } from "electron";
@@ -61,8 +61,7 @@ export async function fileHandler() {
   const remover = await generateSubtitlesRemover();
   let orgFilePath: string = "";
   let reader: Awaited<ReturnType<SubtitlesRemover["generate"]>>;
-  const previewKernel = new PassThrough({});
-  previewKernel.on("data", () => console.log("data"));
+
   app.on("before-quit", async () => {
     remover.kill();
   });
@@ -70,13 +69,13 @@ export async function fileHandler() {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);
     if (filePath != orgFilePath) reader = await remover.generate(filePath);
-
     if (reader == null)
       return new Response("Not found", {
         status: 404,
         statusText: "the video is not exist",
       });
     orgFilePath = filePath;
+    MainWindow.Window?.webContents.send("start-video");
 
     const videoStream = reader.videoStream;
     const props = queryToProps(url.search.slice(1));
@@ -106,6 +105,12 @@ export async function fileHandler() {
         "-movflags faststart+separate_moof+empty_moov+default_base_moof",
       ])
       .run();
+    const kernelWriter = new Transform({
+      transform(chunk, encoding, callback) {
+        MainWindow.Window?.webContents.send("kernel-chunk", chunk);
+        callback(null, chunk);
+      },
+    });
 
     ffmpeg(readerVideo.kernel())
       .inputOptions([
@@ -114,9 +119,9 @@ export async function fileHandler() {
         `-r ${fps}`,
         "-vcodec rawvideo",
         "-pix_fmt bgr24",
-        `-s ${videoStream!.width}:${videoStream!.height}`,
+        `-s ${props.roi.width}:${props.roi.height}`,
       ])
-      .output(previewKernel, { end: false })
+      .output(kernelWriter)
       .outputFormat("mp4")
       .on("error", (e) => {
         if (!videoWrite.closed) videoWrite.emit("error", e);
@@ -135,21 +140,7 @@ export async function fileHandler() {
       },
     });
   });
-  protocol.handle("app", async (req) => {
-    if (req.url !== "app://kernel") {
-      return new Response("Not Found", {
-        status: 404,
-      });
-    }
-    console.log("yes");
-    previewKernel.unpipe();
-    return new Response(previewKernel.pipe(new PassThrough({})) as any, {
-      headers: {
-        "Content-Type": "video/mp4",
-        "Cache-Control": "no-cache",
-      },
-    });
-  });
+
   protocol.registerFileProtocol(fileProtocol, async (req, callback) => {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);

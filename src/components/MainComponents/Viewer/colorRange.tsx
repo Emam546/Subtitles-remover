@@ -1,4 +1,5 @@
 /* eslint-disable react/display-name */
+import { useSyncRefs } from "@src/hooks";
 import React, { Component, ComponentProps, useEffect, useState } from "react";
 export interface ValueProps {
   colorRange: {
@@ -124,9 +125,9 @@ const ColorRangeSelector = React.forwardRef<
         <label className="block mb-2 text-lg font-medium text-gray-600">
           Color Preview
         </label>
-        <video
-          src="app://kernel"
+        <KernelVideo
           width="100%"
+          height="100%"
           className="w-full mx-auto my-2 rounded max-h-96"
           ref={ref}
         />
@@ -142,4 +143,57 @@ const ColorRangeSelector = React.forwardRef<
     </div>
   );
 });
+const KernelVideo = React.forwardRef<HTMLVideoElement, ComponentProps<"video">>(
+  ({ ...props }, ref) => {
+    const [kernel, setKernel] = useState<HTMLVideoElement | null>(null);
+    useEffect(() => {
+      const video = kernel;
+      if (!video) return;
+      let curMediaSource: MediaSource | null = null;
+      return window.api.on("start-video", () => {
+        try {
+          if (curMediaSource) curMediaSource.endOfStream();
+        } catch (error) {}
+        const mediaSource = new MediaSource();
+        video.src = URL.createObjectURL(mediaSource);
+
+        mediaSource.addEventListener("sourceopen", () => {
+          const sourceBuffer = mediaSource.addSourceBuffer(
+            'video/mp4; codecs="avc1.42E01E"',
+          );
+          const queue: Uint8Array[] = [];
+          let updating = false;
+          const appendNext = () => {
+            if (updating || sourceBuffer.updating || queue.length === 0) return;
+            updating = true;
+            const chunk = queue.shift()!;
+            sourceBuffer.appendBuffer(chunk);
+          };
+
+          sourceBuffer.addEventListener("updateend", () => {
+            updating = false;
+            appendNext();
+          });
+
+          const f = window.api.on("kernel-chunk", (e, chunk) => {
+            queue.push(new Uint8Array(chunk));
+            appendNext();
+          });
+          mediaSource.addEventListener("sourceended", f, { once: true });
+          mediaSource.addEventListener("sourceclose", f, { once: true });
+          sourceBuffer.addEventListener("abort", f);
+        });
+        curMediaSource = mediaSource;
+      });
+    }, [kernel]);
+    const allRefs = useSyncRefs<HTMLVideoElement>(ref, setKernel);
+    return (
+      <video
+        {...props}
+        className="w-full mx-auto my-2 rounded max-h-60 bg-black"
+        ref={allRefs}
+      />
+    );
+  },
+);
 export default ColorRangeSelector;

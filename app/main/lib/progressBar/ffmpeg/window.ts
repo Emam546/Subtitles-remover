@@ -57,7 +57,13 @@ export class FfmpegWindow extends BaseDownloaderWindow {
       this.changeState("connecting");
       this.setResumability(true);
       this.setPauseButton("Pause");
-      const reader = await remover.seek({ ...this.ffmpegData });
+      const reader = await remover.seek({
+        colorRange: this.ffmpegData.colorRange,
+        roi: this.ffmpegData.roi,
+        size: this.ffmpegData.size,
+        startTime: this.ffmpegData.startTime,
+        duration: this.ffmpegData.duration,
+      });
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);

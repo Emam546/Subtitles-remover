@@ -12,8 +12,8 @@ export interface NavigateVideo {
 export type Context = NavigateVideo | null;
 export namespace ApiRender {
   interface OnMethods {
-
- 
+    "kernel-chunk": (chunk: any) => void;
+    "start-video": () => void;
     "open-file": (data: string) => void;
     error: (e: Error) => void;
   }

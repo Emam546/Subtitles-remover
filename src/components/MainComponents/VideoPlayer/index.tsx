@@ -20,6 +20,7 @@ export default function VideoClipper() {
     start?: string;
     end?: string;
     path?: string;
+    t?: number;
   };
   const [err, setError] = useState<Error>();
   const [data, setData] = useState<{
@@ -67,6 +68,7 @@ export default function VideoClipper() {
     getTime(query.start, 0, duration),
     getTime(query.end, duration, duration),
   ];
+  const curDuration = getTime(query.t, 0, duration);
   return (
     <>
       <VideoViewer
@@ -74,6 +76,17 @@ export default function VideoClipper() {
         end={end}
         duration={duration}
         path={path}
+        curTime={curDuration}
+        setCurTime={(time) => {
+          router.replace(
+            {
+              pathname: router.pathname, // Keep the current path
+              query: { ...router.query, t: time }, // Add or update the query parameters
+            },
+            undefined,
+            { scroll: false },
+          );
+        }}
         defaultBox={predictSubtitleBox(
           data.videoStream.width!,
           data.videoStream.height!,

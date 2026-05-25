@@ -4,7 +4,7 @@ import ffmpeg from "fluent-ffmpeg";
 import path from "path";
 import { PassThrough, Readable, Transform } from "stream";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
-import { isValidQueryProps } from "../isValidProps";
+import { isValidQueryProps, SeekProps } from "../isValidProps";
 
 const pythonPath: [string, string[] | undefined] =
   app && app.isPackaged
@@ -63,7 +63,7 @@ export class SubtitlesRemover {
       videoPath,
       videoStream,
       seek: async (
-        seek: unknown,
+        seek: SeekProps,
       ): Promise<{
         image: () => Readable;
         jpg: () => Readable;

@@ -13,6 +13,8 @@ export interface Props {
   duration: number;
   start: number;
   end: number;
+  curTime: number;
+  setCurTime(time: number): any;
   setStartEndCut(start: number, end: number): any;
   path: string;
   defaultBox: Dimensions;
@@ -24,15 +26,18 @@ export default function VideoViewer({
   end,
   defaultBox,
   setStartEndCut,
+  curTime: curDuration,
+  setCurTime: setCurDuration,
 }: Props) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<ReactPlayer>(null);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement>();
   const audioRef = useRef<HTMLAudioElement>(null);
-  const kernelVideoRef = useRef<HTMLVideoElement>(null);
+  const [kernelVideoRef, setKernelVideoElement] =
+    useState<HTMLVideoElement | null>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
   const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
-  const [curDuration, setCurDuration] = useState(start);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
   const [loading, setLoading] = useState(false);
   const [videoRequesting, setVideoRequesting] = useState(true);
@@ -59,30 +64,26 @@ export default function VideoViewer({
     [curDim, colorRange, path],
     1000,
   );
-  useEffect(() => {
-    setCurDuration(start);
-  }, [path]);
-  useEffect(() => {
-    videoRef.current
-      ?.getInternalPlayer()
-      ?.addEventListener("loadedmetadata", () => {
-        videoRef.current!.seekTo(0);
-      });
-  }, [videoRef]);
+
+  // useEffect(() => {
+  //   videoElement?.addEventListener("loadedmetadata", () => {
+  //     videoRef.current!.seekTo(0);
+  //   });
+  // }, [videoElement]);
   useEffect(() => {
     const audio = audioRef.current;
-    const video = videoRef.current?.getInternalPlayer();
-
+    const video = videoElement;
+    if (!kernelVideoRef) return;
     if (!video || !audio) return;
     const onPausing = () => {
       // video buffering → pause audio
-      kernelVideoRef.current?.pause();
+      kernelVideoRef.pause();
       audio.pause();
     };
     const onPlaying = () => {
       // video resumed → resume audio
       audio.play();
-      kernelVideoRef.current?.play();
+      kernelVideoRef.play();
       onFinishedLoading();
     };
     const onFinishedLoading = () => {
@@ -112,7 +113,7 @@ export default function VideoViewer({
       video.removeEventListener("canplay", onFinishedLoading);
       video.removeEventListener("playing", onPlaying);
     };
-  }, [mediaDuration, videoRef]);
+  }, [mediaDuration, kernelVideoRef, videoElement]);
   useEffect(() => {
     return window.api.on("error", (_, e) => {
       // eslint-disable-next-line no-console
@@ -120,12 +121,16 @@ export default function VideoViewer({
       setError(e.message);
     });
   }, []);
-  useEffect(() => {}, []);
+  useEffect(() => {
+    const video = kernelVideoRef;
+    if (playing) video?.play().catch();
+    else video?.pause();
+  }, [playing, kernelVideoRef]);
 
   function handelSeek(readDuration: number) {
+    setPlaying(false);
     setCurDuration(readDuration);
     setCurDim({ ...curDim });
-    setPlaying(false);
   }
   return (
     <form
@@ -154,18 +159,26 @@ export default function VideoViewer({
             onBoxResize={(dim) => {
               setCurDim(dim);
             }}
-            onDuration={(seconds) => {
-              const realDuration = seconds + mediaDuration;
-              setCurDuration(realDuration);
+            onReady={(ele) => {
+              setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
+            }}
+            onProgress={({ playedSeconds }) => {
+              const realDuration = playedSeconds + mediaDuration;
+              if (playing) setCurDuration(realDuration);
               if (realDuration < start) handelSeek(start);
               if (realDuration >= end) {
                 if (loopState) {
                   handelSeek(start);
                 } else setPlaying(false);
               }
+              if (kernelVideoRef) {
+                if (Math.abs(kernelVideoRef.currentTime - playedSeconds) > 0.3)
+                  kernelVideoRef.currentTime = playedSeconds;
+              }
+
               const audio = audioRef.current;
               if (audio) {
-                const orgTime = seconds + mediaDuration;
+                const orgTime = playedSeconds + mediaDuration;
                 if (Math.abs(orgTime - audio.currentTime) > 0.3)
                   audio.currentTime = orgTime;
               }
@@ -243,7 +256,7 @@ export default function VideoViewer({
           onColorParams={setColorRange}
           colorParams={colorRange}
           id={path}
-          ref={kernelVideoRef}
+          ref={setKernelVideoElement}
         />
       </div>
       <div className="py-2">
