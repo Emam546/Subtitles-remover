@@ -6,6 +6,7 @@ import base64
 from typing import Tuple, Iterable
 import struct
 
+
 def base64_to_image(b64_string: str, width: int, height: int) -> np.ndarray:
     """Decode base64 image to a NumPy array."""
     img_data = base64.b64decode(b64_string)
@@ -59,8 +60,11 @@ def main():
             color_range = tuple(
                 map(tuple, data.get("color_range", [[200, 200, 200], [255, 255, 255]]))
             )
+            outputs: list = data.get("outputs", [])
             radius = data.get("radius", 4)
             flags = data.get("flags", cv2.INPAINT_TELEA)
+            if len(outputs) == 0:
+                raise Exception("there are no items in the list")
 
             def send(buf: bytes):
                 sys.stdout.buffer.write(struct.pack(">I", len(buf)))
@@ -72,11 +76,18 @@ def main():
             )
             x, y, w, h = roi
             cropped_img = processed_image[y : y + h, x : x + w]
-            # Encode and output result
-            send(processed_image.tobytes())
-            send(cropped_img.tobytes())
-            send(cv2.imencode(".jpg", processed_image)[1])
-            send(kernel.tobytes())
+            if "image" in outputs:
+                send(processed_image.tobytes())
+            if "cropped" in outputs:
+                send(cropped_img.tobytes())
+
+            if "image-jpg" in outputs:
+                send(cv2.imencode(".jpg", processed_image)[1].tobytes())
+
+            if "cropped-jpg" in outputs:
+                send(cv2.imencode(".jpg", cropped_img)[1].tobytes())
+            if "kernel" in outputs:
+                send(kernel.tobytes())
             sys.stdout.flush()
 
         except Exception as e:

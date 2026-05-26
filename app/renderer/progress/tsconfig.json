@@ -1,12 +1,3 @@
 {
-    "extends": "../../../tsconfig.web.json",
-    "include": [
-        "./",
-        "../shared",
-        "../../../shared",
-        "../../../utils",
-        "../utils",
-        "../components",
-        "../utils",
-    ],
+  "extends": "../../../tsconfig.web.json"
 }

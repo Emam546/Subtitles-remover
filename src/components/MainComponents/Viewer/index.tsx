@@ -26,18 +26,20 @@ export default function VideoViewer({
   end,
   defaultBox,
   setStartEndCut,
-  curTime: curDuration,
-  setCurTime: setCurDuration,
+  curTime,
+  setCurTime,
 }: Props) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<ReactPlayer>(null);
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement>();
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
   const [kernelVideoRef, setKernelVideoElement] =
     useState<HTMLVideoElement | null>(null);
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
   const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
+  const [curDuration, setCurDuration] = useState(curTime);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
   const [loading, setLoading] = useState(false);
   const [videoRequesting, setVideoRequesting] = useState(true);
@@ -50,7 +52,6 @@ export default function VideoViewer({
   });
   const [err, setError] = useState<string>();
   // Replace backslashes with forward slashes
-  const audioUrl = `filo:///${encodeURI(path)}`;
   const url = useMemoDebounce(
     () => {
       setError(undefined);
@@ -64,26 +65,24 @@ export default function VideoViewer({
     [curDim, colorRange, path],
     1000,
   );
-
-  // useEffect(() => {
-  //   videoElement?.addEventListener("loadedmetadata", () => {
-  //     videoRef.current!.seekTo(0);
-  //   });
-  // }, [videoElement]);
   useEffect(() => {
-    const audio = audioRef.current;
+    setCurDuration(curTime);
+    if (videoRef.current) videoRef.current?.seekTo(curTime);
+  }, [path, videoRef.current]);
+  // const url = `video:///video/${encodeURI(path)}?${qs.stringify({
+  //   startTime: curDuration,
+  //   roi: curDim,
+  //   ...colorRange,
+  // } as SeekProps)}`;
+  useEffect(() => {
     const video = videoElement;
-    if (!kernelVideoRef) return;
-    if (!video || !audio) return;
+    if (!video) return;
     const onPausing = () => {
       // video buffering → pause audio
-      kernelVideoRef.pause();
-      audio.pause();
+      kernelVideoRef?.pause();
     };
     const onPlaying = () => {
-      // video resumed → resume audio
-      audio.play();
-      kernelVideoRef.play();
+      kernelVideoRef?.play();
       onFinishedLoading();
     };
     const onFinishedLoading = () => {
@@ -93,31 +92,25 @@ export default function VideoViewer({
       onPausing();
       setVideoRequesting(true);
     };
-    const seeking = () => {};
     video.addEventListener("play", onPlaying);
     video.addEventListener("pause", onPausing);
     video.addEventListener("loadstart", onStartLoading);
-    video.addEventListener("canplaythrough", seeking);
-    video.addEventListener("timeupdate", seeking);
     video.addEventListener("waiting", onStartLoading);
     video.addEventListener("canplay", onFinishedLoading);
     video.addEventListener("playing", onPlaying);
-    audioRef.current!.currentTime = mediaDuration;
     return () => {
       video.removeEventListener("play", onPlaying);
       video.removeEventListener("pause", onPausing);
       video.removeEventListener("loadstart", onStartLoading);
-      video.removeEventListener("canplaythrough", seeking);
-      video.removeEventListener("timeupdate", seeking);
+
       video.removeEventListener("waiting", onStartLoading);
       video.removeEventListener("canplay", onFinishedLoading);
       video.removeEventListener("playing", onPlaying);
     };
-  }, [mediaDuration, kernelVideoRef, videoElement]);
+  }, [kernelVideoRef, videoElement]);
   useEffect(() => {
     return window.api.on("error", (_, e) => {
-      // eslint-disable-next-line no-console
-      console.error(e);
+      window.api.send("log", e);
       setError(e.message);
     });
   }, []);
@@ -126,10 +119,13 @@ export default function VideoViewer({
     if (playing) video?.play().catch();
     else video?.pause();
   }, [playing, kernelVideoRef]);
-
+  useEffect(() => {
+    setCurTime(curDuration);
+  }, [curDuration]);
   function handelSeek(readDuration: number) {
     setPlaying(false);
     setCurDuration(readDuration);
+    videoRef.current?.seekTo(readDuration);
     setCurDim({ ...curDim });
   }
   return (
@@ -154,39 +150,49 @@ export default function VideoViewer({
         <div className="relative">
           <AdvancedReactPlayer
             id={path}
-            playing={playing}
+            playing={playing && !videoRequesting}
             aspect={aspect}
             onBoxResize={(dim) => {
               setCurDim(dim);
             }}
-            onReady={(ele) => {
-              setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
-            }}
             onProgress={({ playedSeconds }) => {
-              const realDuration = playedSeconds + mediaDuration;
-              if (playing) setCurDuration(realDuration);
+              const realDuration = playedSeconds;
+              setCurDuration(realDuration);
               if (realDuration < start) handelSeek(start);
               if (realDuration >= end) {
                 if (loopState) {
                   handelSeek(start);
                 } else setPlaying(false);
               }
-              if (kernelVideoRef) {
-                if (Math.abs(kernelVideoRef.currentTime - playedSeconds) > 0.3)
-                  kernelVideoRef.currentTime = playedSeconds;
-              }
-
-              const audio = audioRef.current;
-              if (audio) {
-                const orgTime = playedSeconds + mediaDuration;
-                if (Math.abs(orgTime - audio.currentTime) > 0.3)
-                  audio.currentTime = orgTime;
+              if (videoElement) {
+                if (
+                  Math.abs(
+                    videoElement.currentTime - (playedSeconds - mediaDuration),
+                  ) > 0.3
+                )
+                  videoRef.current?.seekTo(
+                    mediaDuration + videoElement.currentTime,
+                  );
               }
             }}
-            url={url}
+            curBox={curDim}
+            url={`filo:///${encodeURI(path)}`}
             ref={videoRef}
+            croppedProps={{
+              url,
+              playing,
+              onProgress({ playedSeconds }) {
+                if (kernelVideoRef)
+                  if (
+                    Math.abs(kernelVideoRef.currentTime - playedSeconds) > 0.3
+                  )
+                    kernelVideoRef.currentTime = playedSeconds;
+              },
+              onReady(ele) {
+                setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
+              },
+            }}
           />
-          <audio ref={audioRef} src={audioUrl} />
           <VideoLoadingItem state={videoRequesting} />
           <div className="absolute bottom-0 left-0 w-full">
             <ProgressBar

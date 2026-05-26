@@ -6,8 +6,8 @@ import {
   SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
 import { Writable } from "stream";
-import { SeekProps } from "@app/main/utils/isValidProps";
-export interface FfmpegVideoData extends SeekProps {
+import { PartialSeekProps } from "@app/main/utils/isValidProps";
+export interface FfmpegVideoData extends PartialSeekProps {
   path: string;
 }
 export interface FFmpegDownloaderData extends DownloaderData {
@@ -58,21 +58,18 @@ export class FfmpegWindow extends BaseDownloaderWindow {
       this.setResumability(true);
       this.setPauseButton("Pause");
       const reader = await remover.seek({
-        colorRange: this.ffmpegData.colorRange,
-        roi: this.ffmpegData.roi,
-        size: this.ffmpegData.size,
-        startTime: this.ffmpegData.startTime,
-        duration: this.ffmpegData.duration,
+        ...this.ffmpegData,
+        arr: ["image", "image-jpg"],
       });
       const [numerator, denominator] = remover.videoStream
         .r_frame_rate!.split("/")
         .map(Number);
       const fps = numerator / denominator;
-      const videoReader = reader.image();
-      const jpgWriter = reader.jpg().pipe(
+      const videoReader = reader(0);
+      const jpgWriter = reader(1).pipe(
         new Writable({
           write: (chunk: Buffer, encoding, callback) => {
-            this.webContents.send("chunk", chunk.toString());
+            this.webContents.send("chunk", chunk);
             callback();
           },
         }),

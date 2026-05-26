@@ -15,6 +15,7 @@ export namespace ApiRender {
     "kernel-chunk": (chunk: any) => void;
     "start-video": () => void;
     "open-file": (data: string) => void;
+    croppedThumbnail: (image: string) => void;
     error: (e: Error) => void;
   }
   interface OnceMethods {}

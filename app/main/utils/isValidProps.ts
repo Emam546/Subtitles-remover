@@ -5,15 +5,25 @@ export interface Dimensions {
   width: number;
   height: number;
 }
-export interface SeekProps {
+export type ImageState =
+  | "cropped"
+  | "kernel"
+  | "image"
+  | "cropped-jpg"
+  | "image-jpg";
+
+export interface PartialSeekProps {
   startTime: number;
   roi: Dimensions;
   duration?: number;
   colorRange: { min: [number, number, number]; max: [number, number, number] };
   size: number;
 }
+export interface SeekProps extends PartialSeekProps {
+  arr: ImageState[];
+}
 const validator = new Validator({
-  ".": ["required"],
+  ".": [],
   startTime: ["integer", { min: 0 }, "required"],
   roi: {
     ".": ["required"],
@@ -39,6 +49,6 @@ const validator = new Validator({
   duration: ["integer", { min: 0 }],
   size: ["integer", { min: 0 }, "required"],
 });
-export function isValidQueryProps(val: unknown): val is SeekProps {
+export function isValidQueryProps(val: unknown): val is PartialSeekProps {
   return validator.passes(val).state;
 }

@@ -5,13 +5,20 @@ export default function ImageViewer() {
   useEffect(() => {
     return window.api.on("chunk", (_, str) => {
       if (!ref.current) return;
-      ref.current.src = `data:image/jpeg;base64,${str}`;
+      const blob = new Blob([str], { type: "image/jpeg" });
+
+      const chunk = URL.createObjectURL(blob);
+
+      ref.current.src = chunk;
     });
   }, [ref.current]);
 
   return (
     <div>
-      <img className="w-full max-w-fit min-h-full max-h-[30rem] mx-auto" ref={ref} />
+      <img
+        className="w-full max-w-fit min-h-full max-h-[30rem] mx-auto"
+        ref={ref}
+      />
     </div>
   );
 }

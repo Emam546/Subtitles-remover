@@ -145,10 +145,11 @@ const ColorRangeSelector = React.forwardRef<
 });
 const KernelVideo = React.forwardRef<HTMLVideoElement, ComponentProps<"video">>(
   ({ ...props }, ref) => {
-    const [kernel, setKernel] = useState<HTMLVideoElement | null>(null);
+    const [kernel, setKernel] = useState<HTMLVideoElement | null>();
     useEffect(() => {
       const video = kernel;
       if (!video) return;
+
       let curMediaSource: MediaSource | null = null;
       return window.api.on("start-video", () => {
         try {
@@ -177,6 +178,7 @@ const KernelVideo = React.forwardRef<HTMLVideoElement, ComponentProps<"video">>(
 
           const f = window.api.on("kernel-chunk", (e, chunk) => {
             queue.push(new Uint8Array(chunk));
+
             appendNext();
           });
           mediaSource.addEventListener("sourceended", f, { once: true });
@@ -190,7 +192,7 @@ const KernelVideo = React.forwardRef<HTMLVideoElement, ComponentProps<"video">>(
     return (
       <video
         {...props}
-        className="w-full mx-auto my-2 rounded max-h-60 bg-black"
+        className="w-full mx-auto my-2 bg-black rounded max-h-60"
         ref={allRefs}
       />
     );

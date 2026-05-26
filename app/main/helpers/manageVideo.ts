@@ -2,11 +2,15 @@ import {
   generateSubtitlesRemover,
   SubtitlesRemover,
 } from "@app/main/utils/SubtitlesRemover";
-import { PassThrough, Transform } from "stream";
+import { PassThrough, Transform, Writable } from "stream";
 import ffmpeg from "fluent-ffmpeg";
 import qs from "qs";
 import { protocol, app } from "electron";
-import { isValidQueryProps, SeekProps } from "../utils/isValidProps";
+import {
+  ImageState,
+  isValidQueryProps,
+  PartialSeekProps,
+} from "../utils/isValidProps";
 import { MainWindow } from "../lib/main/window";
 const videoProtocolName = "video";
 const fileProtocol = "filo";
@@ -32,7 +36,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-function queryToProps(params: string): SeekProps {
+function queryToProps(params: string): PartialSeekProps {
   const obj: any = qs.parse(params);
   return {
     startTime: parseInt(obj.startTime),
@@ -57,6 +61,30 @@ function queryToProps(params: string): SeekProps {
     size: parseInt(obj.size),
   };
 }
+export async function getThumbnail(
+  state: ImageState,
+  reader: NonNullable<Awaited<ReturnType<SubtitlesRemover["generate"]>>>,
+  props: PartialSeekProps,
+) {
+  const readerVideo = (
+    await reader.seek({
+      ...props,
+      arr: [state],
+    })
+  )(0);
+  return new Promise((res, rej) => {
+    readerVideo.once("error", rej);
+    readerVideo.once("data", res);
+    readerVideo.once("data", () => readerVideo.destroy());
+    readerVideo.pipe(
+      new Writable({
+        write(chunk, encoding, callback) {
+          callback(null);
+        },
+      }),
+    );
+  });
+}
 export async function fileHandler() {
   const remover = await generateSubtitlesRemover();
   let orgFilePath: string = "";
@@ -65,6 +93,7 @@ export async function fileHandler() {
   app.on("before-quit", async () => {
     remover.kill();
   });
+
   protocol.handle(videoProtocolName, async (req) => {
     const url = new URL(req.url);
     const filePath = decodeURI(url.pathname.split("/")[1]);
@@ -76,24 +105,26 @@ export async function fileHandler() {
       });
     orgFilePath = filePath;
     MainWindow.Window?.webContents.send("start-video");
-
     const videoStream = reader.videoStream;
     const props = queryToProps(url.search.slice(1));
     if (!isValidQueryProps(props)) return new Response(null, { status: 404 });
-    const readerVideo = await reader.seek(props);
+    const readerVideo = await reader.seek({
+      ...props,
+      arr: ["cropped", "kernel"],
+    });
     const [numerator, denominator] = videoStream
       .r_frame_rate!.split("/")
       .map(Number);
     const fps = numerator / denominator;
     const videoWrite = new PassThrough({});
-    ffmpeg(readerVideo.image())
+    ffmpeg(readerVideo(0))
       .inputOptions([
         "-y",
         "-f rawvideo",
         `-r ${fps}`,
         "-vcodec rawvideo",
         "-pix_fmt bgr24",
-        `-s ${videoStream!.width}:${videoStream!.height}`,
+        `-s ${props.roi.width}:${props.roi.height}`,
       ])
       .output(videoWrite)
       .outputFormat("mp4")
@@ -105,14 +136,14 @@ export async function fileHandler() {
         "-movflags faststart+separate_moof+empty_moov+default_base_moof",
       ])
       .run();
-    const kernelWriter = new Transform({
-      transform(chunk, encoding, callback) {
+    const kernelWriter = new Writable({
+      write(chunk, encoding, callback) {
         MainWindow.Window?.webContents.send("kernel-chunk", chunk);
-        callback(null, chunk);
+        callback(null);
       },
     });
 
-    ffmpeg(readerVideo.kernel())
+    ffmpeg(readerVideo(1))
       .inputOptions([
         "-y",
         "-f rawvideo",

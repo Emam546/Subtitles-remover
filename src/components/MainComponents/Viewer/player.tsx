@@ -1,6 +1,5 @@
 /* eslint-disable react/display-name */
 import { Rnd } from "react-rnd";
-import { useSyncRefs } from "@src/hooks";
 import React, { ComponentProps, useEffect, useState } from "react";
 import classNames from "classnames";
 import { Dimensions, predictSubtitleBox } from "@src/utils";
@@ -18,7 +17,10 @@ type RemoveIndexSignature<T> = {
 export interface Props extends RemoveIndexSignature<ReactPlayerProps> {
   aspect?: "16:9" | "4:3";
   id: string;
+  refCropped?: React.ForwardedRef<ReactPlayerProps>;
+  croppedProps?: RemoveIndexSignature<ReactPlayerProps>;
   onBoxResize: (dim: Dimensions) => any;
+  curBox?: Dimensions;
 }
 
 const getVideoElementDimensions = (
@@ -50,8 +52,13 @@ const getVideoElementDimensions = (
 };
 
 const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
-  ({ aspect, onBoxResize, id, ...props }, ref) => {
-    const [videoElement, setVideoElement] = useState<HTMLVideoElement>();
+  (
+    { aspect, onBoxResize, curBox, croppedProps, refCropped, id, ...props },
+    ref,
+  ) => {
+    const [MainVideoElement, setVideoElement] = useState<HTMLVideoElement>();
+    const [image, setImage] = useState<string>();
+
     const [dimensions, setDimensions] = useState<Dimensions>();
     const [videoState, setVideoState] = useState<{
       width: number;
@@ -64,143 +71,188 @@ const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
       _setRndDimensions(rndDimensions);
     }
     useEffect(() => {
-      if (!videoElement) return;
+      return window.api.on("croppedThumbnail", (e, image) => {
+        setImage(
+          `data:image/jpeg;base64,${Buffer.from(image).toString("base64")}`,
+        );
+      });
+    }, []);
+    useEffect(() => {
+      if (!MainVideoElement) return;
       if (!videoState) return;
       const listener = () => {
         setDimensions(
-          getVideoElementDimensions(videoElement as any, videoState),
+          getVideoElementDimensions(MainVideoElement as any, videoState),
         );
       };
       const observer = new ResizeObserver((entries) => {
         listener();
       });
       observer.observe(document.documentElement);
-      observer.observe(videoElement);
+      observer.observe(MainVideoElement);
       window.addEventListener("resize", listener);
       return () => {
         window.removeEventListener("resize", listener);
 
         observer.disconnect();
       };
-    }, [videoElement, videoState]);
+    }, [MainVideoElement, videoState]);
     useEffect(() => {
-      if (!videoElement) return;
+      if (!MainVideoElement) return;
       const listener = () => {
         const data = {
-          height: videoElement.videoHeight,
-          width: videoElement.videoWidth,
+          height: MainVideoElement.videoHeight,
+          width: MainVideoElement.videoWidth,
         };
         setVideoState(data);
-        setDimensions(getVideoElementDimensions(videoElement as any, data));
+        setDimensions(getVideoElementDimensions(MainVideoElement as any, data));
       };
-      videoElement.addEventListener("loadedmetadata", listener);
+      MainVideoElement.addEventListener("loadedmetadata", listener);
       return () => {
-        videoElement.removeEventListener("loadedmetadata", listener);
+        MainVideoElement.removeEventListener("loadedmetadata", listener);
       };
-    }, [videoElement]);
+    }, [MainVideoElement]);
     useEffect(() => {
       setDimensions(undefined);
       _setRndDimensions(undefined);
       const listener = () => {
-        if (!videoElement) return;
-        if (videoElement.readyState >= 4) {
+        if (!MainVideoElement) return;
+        if (MainVideoElement.readyState >= 4) {
           const data = {
-            height: videoElement.videoHeight,
-            width: videoElement.videoWidth,
+            height: MainVideoElement.videoHeight,
+            width: MainVideoElement.videoWidth,
           };
           setVideoState(data);
-          setDimensions(getVideoElementDimensions(videoElement, data));
+          setDimensions(getVideoElementDimensions(MainVideoElement, data));
           _setRndDimensions(
             predictSubtitleBox(
-              videoElement.videoWidth,
-              videoElement.videoHeight,
+              MainVideoElement.videoWidth,
+              MainVideoElement.videoHeight,
             ),
           );
         } else {
-          videoElement?.addEventListener("loadedmetadata", listener, {
+          MainVideoElement?.addEventListener("loadedmetadata", listener, {
             once: true,
           });
           return () => {
-            videoElement?.removeEventListener("loadedmetadata", listener);
+            MainVideoElement?.removeEventListener("loadedmetadata", listener);
           };
         }
       };
       return listener();
-    }, [videoElement, aspect, id]);
+    }, [MainVideoElement, aspect, id]);
     const scaleX =
       dimensions && videoState ? dimensions.width / videoState.width : 0;
     const scaleY =
       dimensions && videoState ? dimensions.height / videoState.height : 0;
+
     return (
-      <div
-        className={classNames("relative bg-black/90 w-full", {
-          "aspect-video": aspect == "16:9",
-          "aspect-[4/3]": aspect == "4:3",
-        })}
-      >
-        <ReactPlayer
-          {...props}
-          ref={ref}
-          className="w-full h-full"
-          height="100%"
-          width="100%"
-          onReady={(ele) => {
-            props.onReady?.(ele);
-            setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
-          }}
-        />
-        {dimensions && rndDimensions && (
-          <div
-            className="absolute bg-red-300/30"
-            style={{
-              width: dimensions.width,
-              height: dimensions.height,
-              top: dimensions.y,
-              left: dimensions.x,
+      <>
+        <div
+          className={classNames("relative bg-black/90 w-full", {
+            "aspect-video": aspect == "16:9",
+            "aspect-[4/3]": aspect == "4:3",
+          })}
+        >
+          <ReactPlayer
+            {...props}
+            ref={ref}
+            className="w-full h-full"
+            height="100%"
+            width="100%"
+            onReady={(ele) => {
+              props.onReady?.(ele);
+              setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
             }}
-          >
-            <Rnd
+          />
+          {dimensions && rndDimensions && (
+            <div
+              className="absolute "
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                width: dimensions.width,
+                height: dimensions.height,
+                top: dimensions.y,
+                left: dimensions.x,
               }}
-              size={{
-                width: rndDimensions.width * scaleX,
-                height: rndDimensions.height * scaleY,
-              }}
-              position={{
-                x: rndDimensions.x * scaleX,
-                y: rndDimensions.y * scaleY,
-              }}
-              onDragStop={(e, d) => {
-                setRndDimensions({
-                  ...rndDimensions,
-                  x: d.x / scaleX,
-                  y: d.y / scaleY,
-                });
-              }}
-              onResizeStop={(e, direction, ref, delta, position) => {
-                setRndDimensions({
-                  x: position.x / scaleX,
-                  y: position.y / scaleY,
-                  width: ref.offsetWidth / scaleX,
-                  height: ref.offsetHeight / scaleY,
-                });
-              }}
-              bounds="parent"
             >
-              <div className="absolute top-0 left-0 w-full h-full transition-all border-2 border-blue-500 shadow-lg rounded-xl hover:shadow-blue-500/50">
-                {/* Resize Handles */}
-                <div className="absolute top-0 left-0 w-3 h-3 transition transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nwse-resize hover:scale-110"></div>
-                <div className="absolute top-0 right-0 w-3 h-3 transition transform translate-x-1/2 -translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nesw-resize hover:scale-110"></div>
-                <div className="absolute bottom-0 left-0 w-3 h-3 transition transform -translate-x-1/2 translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nesw-resize hover:scale-110"></div>
-                <div className="absolute bottom-0 right-0 w-3 h-3 transition transform translate-x-1/2 translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nwse-resize hover:scale-110"></div>
-              </div>
-            </Rnd>
-          </div>
-        )}
-      </div>
+              {curBox && (
+                <Rnd
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  size={{
+                    width: curBox.width * scaleX,
+                    height: curBox.height * scaleY,
+                  }}
+                  position={{
+                    x: curBox.x * scaleX,
+                    y: curBox.y * scaleY,
+                  }}
+                  disableDragging={true}
+                  bounds="parent"
+                >
+                  <div className="absolute w-full h-full bg-black">
+                    <ReactPlayer
+                      width="100%"
+                      height="100%"
+                      onProgress={() => {}}
+                      // fallback={<img alt="thumbnail" src={image} />}
+                      {...croppedProps}
+                    />
+                  </div>
+                </Rnd>
+              )}
+              <Rnd
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                size={{
+                  width: rndDimensions.width * scaleX,
+                  height: rndDimensions.height * scaleY,
+                }}
+                position={{
+                  x: rndDimensions.x * scaleX,
+                  y: rndDimensions.y * scaleY,
+                }}
+                onDragStop={(e, d) => {
+                  setRndDimensions({
+                    ...rndDimensions,
+                    x: d.x / scaleX,
+                    y: d.y / scaleY,
+                  });
+                }}
+                onResizeStop={(e, direction, ref, delta, position) => {
+                  setRndDimensions({
+                    x: position.x / scaleX,
+                    y: position.y / scaleY,
+                    width: ref.offsetWidth / scaleX,
+                    height: ref.offsetHeight / scaleY,
+                  });
+                }}
+                bounds="parent"
+              >
+                <div className="absolute top-0 left-0 w-full h-full transition-all border-2 border-blue-500 shadow-lg rounded-xl hover:shadow-blue-500/50">
+                  {/* Resize Handles */}
+
+                  <div className="absolute top-0 left-0 w-3 h-3 transition transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nwse-resize hover:scale-110"></div>
+                  <div className="absolute top-0 right-0 w-3 h-3 transition transform translate-x-1/2 -translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nesw-resize hover:scale-110"></div>
+                  <div className="absolute bottom-0 left-0 w-3 h-3 transition transform -translate-x-1/2 translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nesw-resize hover:scale-110"></div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 transition transform translate-x-1/2 translate-y-1/2 bg-blue-500 rounded-full shadow-md shadow-blue-500 cursor-nwse-resize hover:scale-110"></div>
+                </div>
+              </Rnd>
+            </div>
+          )}
+        </div>
+        {/* <img
+          src={image}
+          className="bg-red-500 min-h-[40px] w-full block"
+          alt=""
+        /> */}
+      </>
     );
   },
 );

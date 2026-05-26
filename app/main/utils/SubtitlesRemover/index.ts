@@ -5,6 +5,7 @@ import path from "path";
 import { PassThrough, Readable, Transform } from "stream";
 import { getVideoInfo } from "@app/main/utils/ffmpeg";
 import { isValidQueryProps, SeekProps } from "../isValidProps";
+import { logger } from "@app/main/helpers/logger";
 
 const pythonPath: [string, string[] | undefined] =
   app && app.isPackaged
@@ -62,16 +63,8 @@ export class SubtitlesRemover {
     return {
       videoPath,
       videoStream,
-      seek: async (
-        seek: SeekProps,
-      ): Promise<{
-        image: () => Readable;
-        jpg: () => Readable;
-        cropped: () => Readable;
-        kernel: () => Readable;
-      }> => {
+      seek: async (seek: SeekProps): Promise<(index: number) => Readable> => {
         await this.clearWriters?.();
-        if (!isValidQueryProps(seek)) throw new Error("uncorrect props");
         const { startTime, roi, colorRange, duration, size } = seek;
         if (!this.pythonProcess) throw new Error("Unrecognized process");
         const transform = new Transform({
@@ -90,32 +83,28 @@ export class SubtitlesRemover {
                 arr.push(frame);
                 buffer = buffer.subarray(4 + size);
               }
-              if (arr.length == 4) {
+              if (arr.length == seek.arr.length) {
                 process.stdout.removeAllListeners("data");
-                callback(null, {
-                  image: arr[0],
-                  cropped: arr[1],
-                  jpg: arr[2],
-                  kernel: arr[3],
-                });
+                callback(null, arr);
               }
             });
 
             if (this.pythonProcess.killed) return;
-
             this.pythonProcess.stdin.write(
               JSON.stringify({
                 image: chunk.toString("base64"),
-                roi: [roi.x, roi.y, roi.width, roi.height],
+                roi: [roi.x, roi.y, roi.width, roi.height].map(Math.round),
                 color_range: [colorRange.min, colorRange.max],
                 size,
                 width,
                 height,
+                outputs: seek.arr,
               }) + "\n",
             );
           },
         });
         const errCall = (err: Buffer) => {
+          logger.err(err, true);
           if (!transform.closed)
             transform.emit("error", new Error(err.toString()));
         };
@@ -146,71 +135,29 @@ export class SubtitlesRemover {
             }, 1);
           });
         };
-        return {
-          image: () =>
-            transform.pipe(
-              new Transform({
-                objectMode: true,
-                transform(chunk, _, callback) {
-                  const res = chunk as {
-                    image: string;
-                  };
-                  callback(null, res.image);
-                },
-              }),
-            ),
-          jpg: () =>
-            transform.pipe(
-              new Transform({
-                objectMode: true,
-                transform(chunk, _, callback) {
-                  const res = chunk as {
-                    jpg: string;
-                  };
-                  callback(null, res.jpg);
-                },
-              }),
-            ),
-          cropped: () =>
-            transform.pipe(
-              new Transform({
-                objectMode: true,
-                transform(chunk, _, callback) {
-                  const res = chunk as {
-                    cropped: string;
-                  };
-                  callback(null, res.cropped);
-                },
-              }),
-            ),
-
-          kernel: () =>
-            transform.pipe(
-              new Transform({
-                objectMode: true,
-                transform(chunk, _, callback) {
-                  const res = chunk as {
-                    kernel: string;
-                  };
-                  callback(null, res.kernel);
-                },
-              }),
-            ),
-        };
+        return (i) =>
+          transform.pipe(
+            new Transform({
+              objectMode: true,
+              transform(chunk: Array<Buffer>, _encoding, callback) {
+                callback(null, chunk[i]);
+              },
+            }),
+          );
       },
     };
   }
   async initialize() {
     await new Promise<void>((res, rej) => {
       this.pythonProcess = spawn(...pythonPath).on("error", (e) => {
-        console.error(e);
+        logger.err(e);
         rej(e);
       });
       this.pythonProcess.stdout.once("data", () => {
         res();
       });
       this.pythonProcess.stderr.on("data", (e: Buffer) =>
-        console.error(e.toString()),
+        logger.err(e.toString()),
       );
       this.pythonProcess.stderr.once("data", rej);
     });

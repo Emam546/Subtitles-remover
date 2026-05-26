@@ -11,6 +11,9 @@ const subtitlesRemover = new SubtitlesRemover();
 beforeAll(async () => {
   await subtitlesRemover.initialize();
 });
+test("test initialization", async () => {
+  await subtitlesRemover.initialize();
+});
 // jest.setTimeout(40000);
 describe("Test Subtitles Remover", () => {
   test("simple video", async () => {
@@ -29,10 +32,11 @@ describe("Test Subtitles Remover", () => {
         width: 100,
         height: 100,
       },
+      arr: ["image"],
     });
 
     await new Promise<void>((res, rej) => {
-      const video = readers.image();
+      const video = readers(0);
       video.on("error", rej);
       video.on("end", res);
       const [numerator, denominator] = remover.videoStream
@@ -84,8 +88,9 @@ describe("Test Subtitles Remover", () => {
         width: 100,
         height: 100,
       },
+      arr: ["image"],
     });
-    const video = readers.image();
+    const video = readers(0);
 
     await new Promise<void>((res, rej) => {
       const passThrough = new PassThrough();
@@ -136,10 +141,11 @@ describe("Test Subtitles Remover", () => {
         width: 100,
         height: 100,
       },
+      arr: ["kernel"],
     });
 
     await new Promise<void>((res, rej) => {
-      const video = readers.kernel();
+      const video = readers(0);
       video.on("error", rej);
       video.on("end", res);
       const [numerator, denominator] = remover.videoStream
