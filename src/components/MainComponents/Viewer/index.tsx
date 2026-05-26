@@ -52,19 +52,15 @@ export default function VideoViewer({
   });
   const [err, setError] = useState<string>();
   // Replace backslashes with forward slashes
-  const url = useMemoDebounce(
-    () => {
-      setError(undefined);
-      setMediaDuration(curDuration);
-      return `video:///video/${encodeURI(path)}?${qs.stringify({
-        startTime: curDuration,
-        roi: curDim,
-        ...colorRange,
-      } as SeekProps)}`;
-    },
-    [curDim, colorRange, path],
-    1000,
-  );
+  const url = useMemo(() => {
+    setError(undefined);
+    setMediaDuration(curDuration);
+    return `video:///video/${encodeURI(path)}?${qs.stringify({
+      startTime: curDuration,
+      roi: curDim,
+      ...colorRange,
+    } as SeekProps)}`;
+  }, [curDim, colorRange, path]);
   useEffect(() => {
     setCurDuration(curTime);
   }, [path]);
