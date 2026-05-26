@@ -44,7 +44,7 @@ export default function VideoClipper() {
           videoStream: { ...result },
         });
       })
-      .catch(setError);
+      .catch((err) => setError(err.toString()));
     setError(undefined);
     return () => {
       controller.abort();
@@ -54,7 +54,7 @@ export default function VideoClipper() {
   if (err)
     return (
       <>
-        <>{JSON.stringify(err)}</>
+        <p className="text-red-600">{err}</p>
       </>
     );
   if (!data || data.path != path)
