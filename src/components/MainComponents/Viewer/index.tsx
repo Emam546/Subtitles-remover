@@ -39,6 +39,7 @@ export default function VideoViewer({
   const [aspect, setAspect] = useState<AspectsType>("16:9");
   const [loopState, setLoopState] = useState(false);
   const [curDim, setCurDim] = useState<Dimensions>(defaultBox);
+  console.log(curTime);
   const [curDuration, setCurDuration] = useState(curTime);
   const [mediaDuration, setMediaDuration] = useState(curDuration);
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,7 @@ export default function VideoViewer({
   useEffect(() => {
     setCurDuration(curTime);
     if (videoRef.current) videoRef.current?.seekTo(curTime);
-  }, [path, videoRef.current]);
+  }, [path]);
   // const url = `video:///video/${encodeURI(path)}?${qs.stringify({
   //   startTime: curDuration,
   //   roi: curDim,
@@ -124,6 +125,7 @@ export default function VideoViewer({
   }, [curDuration]);
   function handelSeek(readDuration: number) {
     setPlaying(false);
+    setMediaDuration(readDuration);
     setCurDuration(readDuration);
     videoRef.current?.seekTo(readDuration);
     setCurDim({ ...curDim });
@@ -154,6 +156,9 @@ export default function VideoViewer({
             aspect={aspect}
             onBoxResize={(dim) => {
               setCurDim(dim);
+            }}
+            onReady={(ele) => {
+              ele.seekTo(curDuration);
             }}
             onProgress={({ playedSeconds }) => {
               const realDuration = playedSeconds;
