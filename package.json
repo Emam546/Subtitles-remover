@@ -14,7 +14,8 @@
   "scripts": {
     "build:next": "next build",
     "export": "npm run build:next&&next export",
-    "lint": "next lint -c ./src/.eslintrc.json src",
+    "lint": "eslint server app src --ext .ts,.tsx",
+    "lint:src": "tsc --noEmit && eslint -c ./src/.eslintrc.json src",
     "lint:electron": "eslint -c app/.eslintrc.json --ext .ts app/main/",
     "dev": "next dev",
     "test": "jest",

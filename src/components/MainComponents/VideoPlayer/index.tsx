@@ -22,7 +22,7 @@ export default function VideoClipper() {
     path?: string;
     t?: number;
   };
-  const [err, setError] = useState<Error>();
+  const [err, setError] = useState<string>();
   const [data, setData] = useState<{
     duration: number;
     videoStream: Ffmpeg.FfprobeStream;
