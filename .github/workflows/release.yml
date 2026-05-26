@@ -18,6 +18,16 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 20.0.0
+            # Setup Python
+            
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: install dependencies
+        run: npm install
+      - name: install dependencies
+        run: pip install poetry&&poetry install
       - name: install dependencies
         run: npm install
       - name: packing
