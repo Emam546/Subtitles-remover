@@ -10,26 +10,21 @@ permissions:
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
 jobs:
+  
   publish_on_win:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      # Setup Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: 20.0.0
-      # Setup Python
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
       - name: install dependencies
         run: npm install
-      - name: install dependencies
-        run: pip install poetry&&poetry install
       - name: packing
         run: npm run pack
-      - name: publish
-        run: npm run publish
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            scripts.zip
+            dist/subtitles-remover-setup-*.exe
