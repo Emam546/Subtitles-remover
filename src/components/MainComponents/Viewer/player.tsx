@@ -17,6 +17,7 @@ type RemoveIndexSignature<T> = {
 export interface Props extends RemoveIndexSignature<ReactPlayerProps> {
   aspect?: "16:9" | "4:3";
   id: string;
+  defaultTime?: number;
   refCropped?: React.ForwardedRef<ReactPlayerProps>;
   croppedProps?: RemoveIndexSignature<ReactPlayerProps>;
   onBoxResize: (dim: Dimensions) => any;
@@ -53,12 +54,20 @@ const getVideoElementDimensions = (
 
 const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
   (
-    { aspect, onBoxResize, curBox, croppedProps, refCropped, id, ...props },
+    {
+      aspect,
+      onBoxResize,
+      defaultTime,
+      curBox,
+      croppedProps,
+      refCropped,
+      id,
+      ...props
+    },
     ref,
   ) => {
+    const [seeked, setSeeked] = useState(false);
     const [MainVideoElement, setVideoElement] = useState<HTMLVideoElement>();
-    const [image, setImage] = useState<string>();
-
     const [dimensions, setDimensions] = useState<Dimensions>();
     const [videoState, setVideoState] = useState<{
       width: number;
@@ -70,13 +79,7 @@ const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
       onBoxResize?.(rndDimensions);
       _setRndDimensions(rndDimensions);
     }
-    useEffect(() => {
-      return window.api.on("croppedThumbnail", (e, image) => {
-        setImage(
-          `data:image/jpeg;base64,${Buffer.from(image).toString("base64")}`,
-        );
-      });
-    }, []);
+
     useEffect(() => {
       if (!MainVideoElement) return;
       if (!videoState) return;
@@ -117,7 +120,7 @@ const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
       _setRndDimensions(undefined);
       const listener = () => {
         if (!MainVideoElement) return;
-        if (MainVideoElement.readyState >= 4) {
+        if (MainVideoElement.readyState >= 3) {
           const data = {
             height: MainVideoElement.videoHeight,
             width: MainVideoElement.videoWidth,
@@ -162,7 +165,25 @@ const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
             width="100%"
             onReady={(ele) => {
               props.onReady?.(ele);
-              setVideoElement(ele.getInternalPlayer() as HTMLVideoElement);
+              if (!seeked && defaultTime) ele.seekTo(defaultTime);
+
+              setSeeked(true);
+              const MainVideoElement =
+                ele.getInternalPlayer() as HTMLVideoElement;
+              setVideoElement(MainVideoElement);
+              const data = {
+                height: MainVideoElement.videoHeight,
+                width: MainVideoElement.videoWidth,
+              };
+              setVideoState(data);
+              setDimensions(getVideoElementDimensions(MainVideoElement, data));
+              if (!rndDimensions)
+                _setRndDimensions(
+                  predictSubtitleBox(
+                    MainVideoElement.videoWidth,
+                    MainVideoElement.videoHeight,
+                  ),
+                );
             }}
           />
           {dimensions && rndDimensions && (
@@ -197,8 +218,17 @@ const AdvancedReactPlayer = React.forwardRef<ReactPlayer, Props>(
                     <ReactPlayer
                       width="100%"
                       height="100%"
-                      onProgress={() => {}}
-                      // fallback={<img alt="thumbnail" src={image} />}
+                      playsinline
+                      muted
+                      config={{
+                        file: {
+                          attributes: {
+                            autoPlay: true,
+                            muted: true,
+                            playsInline: true,
+                          },
+                        },
+                      }}
                       {...croppedProps}
                     />
                   </div>
